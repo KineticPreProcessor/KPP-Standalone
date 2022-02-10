@@ -80,8 +80,8 @@ MODOBJ   = gckpp_Model.o
 INISRC   = gckpp_Initialize.F90
 INIOBJ 	 = gckpp_Initialize.o
 
-SFCSRC   = setquants.F90
-SFCOBJ   = setquants.o
+SFCSRC   = initialize.F90
+SFCOBJ   = initialize.o
 
 MAINSRC = compressor.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
 MAINOBJ = compressor.o     gckpp_Initialize.o     gckpp_Integrator.o
@@ -184,5 +184,5 @@ gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 compressor.o: compressor.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-setquants.o: setquants.F90 gckpp_Parameters.o $(ALLOBJ)
+initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<

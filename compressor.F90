@@ -1,16 +1,10 @@
 program main
 
-  ! GIT Branch fullchem_online
-  ! 1) make the vectors non-allocatable by setting the bounding index
-  !    -- this will allow not having to repeatedly allocate & deallocate
-  !       vectors. We already know none of them will be longer than
-  !       NVAR or LU_NONZERO
-
   USE GCKPP_GLOBAL
   USE GCKPP_JACOBIANSP
   USE GCKPP_PARAMETERS
   USE GCKPP_MONITOR
-  USE SETQUANTS
+  USE INITIALIZE
 
   IMPLICIT NONE
 
@@ -27,145 +21,82 @@ program main
   
   INTEGER :: idx, S
   INTEGER :: NAVG ! Number of iterations in the timing averaging loop
-  INTEGER :: NITR ! Number of integration iterations
 
   INTEGER, ALLOCATABLE :: rLU_IROW(:), rLU_ICOL(:) ! temporary, for display purposes
   LOGICAL, ALLOCATABLE :: tDO_FUN(:), tDO_SLV(:), tDO_JVS(:)
 
-  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), lim, Cfull(NSPEC),Credux(NSPEC), RRMS
+  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), AR_threshold, Cfull(NSPEC),Credux(NSPEC), RRMS
   REAL(dp)             :: A(NREACT), Prod(NVAR), Loss(NVAR)
 
   LOGICAL              :: OUTPUT
-  LOGICAL              :: FORCE_FULL ! Force cIntegrate() to use the full mechanim. Inelegantly done
   LOGICAL              :: ReInit
   
   ! Formatting vars
   character(len=20) :: lunz, nv, clunz, cnv
 
   OUTPUT     = .false.
-  FORCE_FULL = .false.
   REINIT     = .true.  ! Reset C every NITR,NAVG iteration
 !  REINIT     = .false. ! Let C evolve over the NITR, NAVG loop
 
-  NITR = 1
-  NAVG = 100
+  NAVG = 100 
 
-  lim = 5e2
+  AR_threshold = 5e2 ! Threshold value for AR
 
   R     = 0._dp
   Cinit = 0._dp
   cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
 
-!  call set_quantssfc(dcdt,Cinit,R)
-!  call set_quants_uppertrop(dcdt,Cinit,R)
-!  call set_quants_terminator(Cinit, R)
-  call set_quants_terminator7(Cinit, R)
+!  call initialize_sunrise(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
+!  call initialize_namericaday(Cinit, R) ! N. America, surface, day, July 1
+  call initialize_satlnight(Cinit, R) ! S. Mid Atlantic, midtrop, night, July 1
   where (Cinit .eq. 0.d0) Cinit = 1e-20
-  ! -------------------------------------------------------------------------- !
-  ! 1. Reconstruct the sparse data for a reduced mechanism
-  ! e.g. compact the Jacobian
-  ! -- remove row & column
-  ! -- DO_SLV, DO_FUN, and DO_JVS will not change size (remain NVAR & NONZERO)
-  !    But the appropriate elements are set to zero, so the appropriate terms
-  !    in KppSolve(), Fun() and Jac_SP() are not computed
-  ! -- -- Loop through vectors
-  ! -- -- -- Allocate the new Jacobian elements based on new non-zero elements
-  ! -- -- Set up SPC_MAP() to map full-mech Fcn to compressed Fcn
-  ! -- -- -- recompute LU_IROW
-  ! -- -- -- recompute LU_ICOL
-  ! -- -- -- Count the number of nonzero elements in the reduced LU diag
-
 
   ! -------------------------------------------------------------------------- !
-  ! 2. Run the full mechanism
+  ! 1. Run the full mechanism
 
-  ! Make sure everything is calculated. This should be automatic if not running
-  ! a compacted mech. (This is currently also done above, but repeated here for
-  ! safety. -- MSL
   write(*,*) ' '
   write(*,*) 'Running the full mechanism for initialization'
-  call fullmech() ! initialization run
+  call fullmech() ! initialization run. Priming memory. Otherwise, first pass is slow
 
   call fullmech()
   Cfull = C
-  write(*,*) SPC_NAMES(ind_O3), C(ind_O3), Cinit(ind_O3)
-  write(*,*) SPC_NAMES(ind_OH), C(ind_OH), Cinit(ind_OH)
-  write(*,*) SPC_NAMES(ind_SO4), C(ind_SO4), Cinit(ind_SO4)
-  write(*,*) SPC_NAMES(ind_NO2), C(ind_NO2), Cinit(ind_NO2)
-  write(*,*) SPC_NAMES(ind_Br), C(ind_Br), Cinit(ind_Br)
-  write(*,*) SPC_NAMES(ind_BrO), C(ind_BrO), Cinit(ind_BrO)
-  write(*,*) SPC_NAMES(ind_Cl), C(ind_Cl), Cinit(ind_Cl)
-  write(*,*) SPC_NAMES(ind_ClO), C(ind_ClO), Cinit(ind_ClO)
   
   ! -------------------------------------------------------------------------- !
-  ! 3. Run the compacted mechanism
-  ! - Need to somehow pass the compacted vectors to KPP
-  ! - Should be pretty straight-forward
-  ! - Will need to respond to new 'parameters' cNVAR, cNONZERO
-  ! - the compacted mechanism will still process the full species vector, 
-  !   C(NVAR), not c(rNVAR), only dC/dt of inactive species is zero
+  ! 2. Run the compacted mechanism
 
   call compactedmech()
   Credux = C
-  write(*,*) SPC_NAMES(ind_O3), C(ind_O3), Cinit(ind_O3)
-  write(*,*) SPC_NAMES(ind_OH), C(ind_OH), Cinit(ind_OH)
-  write(*,*) SPC_NAMES(ind_SO4), C(ind_SO4), Cinit(ind_SO4)
-  write(*,*) SPC_NAMES(ind_NO2), C(ind_NO2), Cinit(ind_NO2)
-  write(*,*) SPC_NAMES(ind_Br), C(ind_Br), Cinit(ind_Br)
-  write(*,*) SPC_NAMES(ind_BrO), C(ind_BrO), Cinit(ind_BrO)
-  write(*,*) SPC_NAMES(ind_Cl), C(ind_Cl), Cinit(ind_Cl)
-  write(*,*) SPC_NAMES(ind_ClO), C(ind_ClO), Cinit(ind_ClO)
   
-  write(*,*) ''
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_O3))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_O3)-Cfull(ind_O3))/Cfull(ind_O3), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_OH))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_OH)-Cfull(ind_OH))/Cfull(ind_OH), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_SO4))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_SO4)-Cfull(ind_SO4))/Cfull(ind_SO4), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_NO2))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_NO2)-Cfull(ind_NO2))/Cfull(ind_NO2), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_Br))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_Br)-Cfull(ind_Br))/Cfull(ind_Br), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_BrO))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_BrO)-Cfull(ind_BrO))/Cfull(ind_BrO), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_Cl))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_Cl)-Cfull(ind_Cl))/Cfull(ind_Cl), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_ClO))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_ClO)-Cfull(ind_ClO))/Cfull(ind_ClO), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_HCl))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_HCl)-Cfull(ind_HCl))/Cfull(ind_HCl), '%'
-!>>  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(ind_BrNO3))//' redux-full/full ', &
-!>>       100._dp*(Credux(ind_BrNO3)-Cfull(ind_BrNO3))/Cfull(ind_BrNO3), '%'
-  do i=1,NVAR
-  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(i))//' redux-full/full ', &
-       100._dp*(Credux(i)-Cfull(i))/Cfull(i), '%'
-  enddo
+!  do i=1,NVAR
+!  write(*,'(a,f6.2,a)') '  '//trim(SPC_NAMES(i))//' redux-full/full ', &
+!       100._dp*(Credux(i)-Cfull(i))/Cfull(i), '%'
+!  enddo
+
   ! -------------------------------------------------------------------------- !
-  ! 4. (optional) Calculate the error norm per Santillana et al. (2010) and
+  ! 3. (optional) Calculate the error norm per Santillana et al. (2010) and
   !    Shen et al. (2020)
   !    --- this is valuable if the species removed are selected per
   !        a reduction criterion. Requires a properly posed mechanism.
-
   ! -------------------------------------------------------------------------- !
-
-  ! 5. Report timing comparison
-
-  write(*,'(a,f5.1,a)') '  compact/full: ', 100.*compact_avg/full_avg, "%" 
-  write(*,'(a,f5.1,a)') '  problem size: ', 100.*(rNVAR**2)/(NVAR**2), "%"
-  write(*,'(a,f5.1,a)') '  non-zero elm: ', 100.*(cNONZERO)/(LU_NONZERO), "%"
-
-  IF (OUTPUT) THEN
-  DO i=1,rNVAR
-     ii = SPC_MAP(i)
-!     write(*,*) SPC_NAMES(ii) // ': ', Cfull(ii), Credux(ii), (Credux(ii)-Cfull(ii))/Cfull(ii)
-  ENDDO
-  ENDIF
 
   RRMS = sqrt(sum(((Credux(SPC_MAP(1:rNVAR))-Cfull(SPC_MAP(1:rNVAR)))/Cfull(SPC_MAP(1:rNVAR)))**2,&
        MASK=Cfull(SPC_MAP(1:rNVAR)).ne.0..and.Cfull(SPC_MAP(1:rNVAR)).gt.1e6_dp)/dble(rNVAR))
 
   write(*,'(a,f8.1)') 'RRMS: ', 100.*RRMS
+
+  ! -------------------------------------------------------------------------- !
+  ! 5. Report timing comparison
+
+  write(*,'(a,f5.1,a)') '  compact/full: ', 100.*compact_avg/full_avg, "%" 
+  write(*,'(a,f5.1,a)') '  problem size: ', 100.*(rNVAR)/(NVAR), "%"
+  write(*,'(a,f5.1,a)') '  non-zero elm: ', 100.*(cNONZERO)/(LU_NONZERO), "%"
+
+!  IF (OUTPUT) THEN
+!  DO i=1,rNVAR
+!     ii = SPC_MAP(i)
+!     write(*,*) SPC_NAMES(ii) // ': ', Cfull(ii), Credux(ii), (Credux(ii)-Cfull(ii))/Cfull(ii)
+!  ENDDO
+!  ENDIF
 
 CONTAINS
 
@@ -209,28 +140,23 @@ CONTAINS
     ! --- INTEGRATION & TIMING LOOP
     DO I=1,NAVG
        call cpu_time(start)
-       DO N=1,NITR
-          if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
-          ! Initialize
-          call Initialize()
-          VAR(1:NVAR) = C(1:NVAR)
-          FIX(1:NFIX) = C(NVAR+1:NSPEC)
-          ! Set RCONST
-          call Update_RCONST()
-          ! Integrate
-          CALL Integrate( TIN,    TOUT,    ICNTRL,      &
-               RCNTRL, ISTATUS, RSTATE, IERR )
-          C(1:NVAR)   = VAR(:)
-!          write(*,*) ISTATUS
-       ENDDO
+       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
+       ! Initialize
+       call Initialize()
+       VAR(1:NVAR) = C(1:NVAR)
+       FIX(1:NFIX) = C(NVAR+1:NSPEC)
+       ! Set RCONST
+       call Update_RCONST()
+       ! Integrate
+       CALL Integrate( TIN,    TOUT,    ICNTRL,      &
+            RCNTRL, ISTATUS, RSTATE, IERR )
+       C(1:NVAR)   = VAR(:)
        call cpu_time(end)
-!       write(*,*) 'time: ', end-start
        full_sumtime = full_sumtime+end-start
     ENDDO
     full_avg = full_sumtime/real(NAVG)
     write(*,*) "Average integration time: ", full_avg
     write(*,*) '---------------'
-!    write(*,*) 'fullmech ISTATUS: ', ISTATUS(:)
  
     return
  end subroutine fullmech
@@ -254,7 +180,7 @@ CONTAINS
     ICNTRL(7) = 1
     
     ICNTRL(8) = 1
-    RCNTRL(8) = lim !default is 1.d2
+    RCNTRL(8) = AR_threshold !default is 1.d2
 
     ! Tolerances
     ATOL      = 1e-2_dp    
@@ -274,7 +200,7 @@ CONTAINS
     start        = 0.
     end          = 0.
 
-    keepActive = .true.
+!    keepActive = .true.
 !    keepSpcActive(ind_HNO3) = .true.
 !    keepSpcActive(ind_Cl2) = .true.
 !    keepSpcActive(ind_BrCl) = .true.
@@ -283,28 +209,23 @@ CONTAINS
     ! --- INTEGRATION & TIMING LOOP
     DO I=1,NAVG ! Iterate to generate average comp time
        call cpu_time(start)
-       DO N=1,NITR
-          if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
-          ! Initialize
-          call Initialize()
-          VAR = C(1:NVAR)
-          FIX = C(NVAR+1:NSPEC)
-          ! Set RCONST
-          call Update_RCONST()
-          ! Integrate
-          CALL Integrate( TIN,    TOUT,    ICNTRL,      &
-               RCNTRL, ISTATUS, RSTATE, IERR )
-          C(1:NVAR)       = VAR(:)
-!          write(*,*) ISTATUS
-       ENDDO
+       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
+       ! Initialize
+       call Initialize()
+       VAR = C(1:NVAR)
+       FIX = C(NVAR+1:NSPEC)
+       ! Set RCONST
+       call Update_RCONST()
+       ! Integrate
+       CALL Integrate( TIN,    TOUT,    ICNTRL,      &
+            RCNTRL, ISTATUS, RSTATE, IERR )
+       C(1:NVAR)       = VAR(:)
        call cpu_time(end)
-!       write(*,*) 'time: ', end-start
        comp_sumtime = comp_sumtime+end-start
     ENDDO
     compact_avg = comp_sumtime/real(NAVG)
     write(*,*) "Average integration time: ", compact_avg
     write(*,*) '---------------'
-!    write(*,*) 'compmech ISTATUS: ', ISTATUS(:)
     
     return
   end subroutine compactedmech
