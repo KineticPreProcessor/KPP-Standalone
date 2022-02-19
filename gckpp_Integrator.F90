@@ -749,6 +749,7 @@ Stage: DO istage = 1, ros_S
    DO_FUN  = .true.
    DO_JVS  = .true.
    Reduced = .false.
+   RMV     = 0
 
    T = Tstart
    RSTATUS(Nhexit) = ZERO
@@ -800,25 +801,19 @@ TimeLoop: DO WHILE ( (Direction > 0).AND.((T-Tend)+Roundoff <= ZERO) &
          return
       endif
    endif
-!>>> IF reduced, check Prod/Loss for append() condition
+!~~~> IF reduced, check Prod/Loss for append() condition
+   ! This could be made more efficient
    if ( reduced ) then
-!      if (any(abs(Loss(RMV(1:rNVAR))*Y(RMV(1:rNVAR))).gt.threshold .or. abs(Prod(RMV(1:rNVAR))).gt.threshold))then
-!      tRMV = RMV
-      DO i=1,NVAR!-rNVAR
+      DO i=1,NVAR
          SPC = RMV(i)
          if (SPC .eq. 0) cycle ! Species is already appended
          if (abs(Loss(SPC)*Y(SPC)).gt.threshold .or. abs(Prod(SPC)).gt.threshold) then
             CALL APPEND(SPC)
             RMV(i) = 0
-!            ! Collapse the RMV() vector            
-!            RLOC                      = findloc(RMV,SPC,1) ! Set the location of species IDX to 0
-!            tRMV(RLOC:NVAR-1)         = RMV(RLOC+1:NVAR)
          endif
       ENDDO
-!      RMV = tRMV
-!      endif
    endif
-!>>>
+
 !~~~>  Compute the function derivative with respect to T
    IF (.NOT.Autonomous) THEN
       CALL ros_FunTimeDerivative ( T, Roundoff, Y, &
@@ -2051,8 +2046,6 @@ END SUBROUTINE cWAXPY
       END SUBROUTINE APPEND
       
 END MODULE gckpp_Integrator
-
-
 
 ! End of INTEGRATE function
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
