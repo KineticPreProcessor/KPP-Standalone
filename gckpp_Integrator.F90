@@ -800,6 +800,7 @@ TimeLoop: DO WHILE ( (Direction > 0).AND.((T-Tend)+Roundoff <= ZERO) &
          IERR = 1 ! Success
          return
       endif
+      if (IERR .eq. -99) return
    endif
 !~~~> IF reduced, check Prod/Loss for append() condition
    ! This could be made more efficient
@@ -1973,6 +1974,11 @@ END SUBROUTINE cWAXPY
            S=S+1
         ENDDO
         rNVAR    = NVAR-NRMV ! Number of active species in the reduced mechanism
+        
+        if (dble(rNVAR)/dble(NVAR) .ge. 0.6) then
+           IERR = -99
+           return
+        endif
 
         II  = 1
         III = 1

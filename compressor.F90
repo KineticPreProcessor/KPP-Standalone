@@ -39,9 +39,9 @@ program main
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NAVG iteration
 !  REINIT       = .false. ! Let C evolve over the NAVG loop
-  NAVG         = 1
-  AR_threshold = 1e4 ! Threshold value for AR
-  SCENARIO     = 3
+  NAVG         = 100
+  AR_threshold = 1e-2 ! Threshold value for AR
+  SCENARIO     = 4
 
   R     = 0._dp
   Cinit = 0._dp
