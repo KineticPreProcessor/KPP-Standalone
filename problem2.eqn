@@ -1,0 +1,30 @@
+#include atoms
+
+#DEFVAR
+
+O3     = IGNORE;
+NO     = IGNORE;
+OH     = IGNORE;
+NO2    = IGNORE;
+CO     = IGNORE;
+CO2    = IGNORE;
+HO2    = IGNORE;
+H2O2   = IGNORE;
+CH4    = IGNORE;
+HNO3   = IGNORE;
+H2O    = IGNORE;
+O2     = IGNORE;
+
+#EQUATIONS
+O3   + hv  = 2OH  + O2	: 5.0d-8;
+NO   + O3  = NO2  + O2	: 1.2d-14;
+CO   + OH  = CO2  + HO2	: 2.4d-13;
+HO2  + NO  = OH   + NO2	: 9.2d-12;
+NO2  + hv  = NO   + O3	: 3.3d-3;
+HO2  + HO2 = H2O2 + O2	: 2.0d-12;
+H2O2 + hv  = 2OH	: 2.7d-6;
+CH4  + OH  = CO   + HO2	: 3.8d-15;
+H2O2 + OH  = HO2  + H2O	: 1.7d-12;
+HO2  + O3  = OH   + 2O2	: 1.8d-15;
+OH   + HO2 = H2O  + O2	: 1.2d-10;
+NO2  + OH  = HNO3 	: 1.0d-11;

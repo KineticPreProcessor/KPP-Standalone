@@ -4,7 +4,6 @@ program main
   USE GCKPP_JACOBIANSP
   USE GCKPP_PARAMETERS
   USE GCKPP_MONITOR
-  USE INITIALIZE
 
   IMPLICIT NONE
 
@@ -30,8 +29,6 @@ program main
 
   LOGICAL              :: OUTPUT
   LOGICAL              :: ReInit
-  
-  INTEGER              :: SCENARIO
 
   ! Formatting vars
   character(len=20) :: lunz, nv, clunz, cnv
@@ -41,22 +38,17 @@ program main
 !  REINIT       = .false. ! Let C evolve over the NAVG loop
   NAVG         = 100
   AR_threshold = 1e-2 ! Threshold value for AR
-  SCENARIO     = 4
 
-  R     = 0._dp
   Cinit = 0._dp
   cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
 
-  IF (SCENARIO .eq. 1) &
-       call initialize_sunrise(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
-  IF (SCENARIO .eq. 2) &
-       call initialize_sunrisemidtrop(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
-  IF (SCENARIO .eq. 3) &
-       call initialize_namericaday(Cinit, R) ! N. America, surface, day, July 1
-  IF (SCENARIO .eq. 4) &
-       call initialize_satlnight(Cinit, R) ! S. Mid Atlantic, midtrop, night, July 1
-
-!  where (Cinit .eq. 0.d0) Cinit = 1e-20 ! Set min concentration, if needed
+  ! Initialize
+  Cinit(1:NVAR)   = 1.e8_dp
+  Cinit(ind_O2)   = 5.3e18_dp
+  Cinit(ind_CH4)  = 4.2e13_dp
+  Cinit(ind_CO)   = 1.0e12_dp
+  Cinit(ind_NO)   = 1.25e9_dp
+  Cinit(ind_NO2)  = 1.25e9_dp
 
   write(*,*) ' '
   write(*,*) 'The KPP Auto-reduction test boxmodel'
@@ -73,16 +65,12 @@ program main
   call fullmech(.false.)
   Cfull = C
   
-!  call massbalance(Cfull, Cinit)
-
   ! -------------------------------------------------------------------------- !
   ! 2. Run the compacted mechanism
 
   call compactedmech()
   Credux = C
   
-  call massbalance(Credux, Cfull)
-
   ! -------------------------------------------------------------------------- !
   ! 3. Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
 
@@ -151,7 +139,6 @@ CONTAINS
        ! Initialize
        call Initialize()
        VAR(1:NVAR) = C(1:NVAR)
-       FIX(1:NFIX) = C(NVAR+1:NSPEC)
        ! Set RCONST
        call Update_RCONST()
        ! Integrate
@@ -207,32 +194,6 @@ CONTAINS
     start        = 0.
     end          = 0.
 
-    keepActive                    = .false.
-    keepSpcActive(ind_ClNO2)      = .true.
-    keepSpcActive(ind_ClOO)       = .true.
-    keepSpcActive(ind_BrCl)       = .true.
-    keepSpcActive(ind_Br2 )       = .true.
-    keepSpcActive(ind_BrNO3)      = .true.
-    keepSpcActive(ind_HOBr)       = .true.
-    keepSpcActive(ind_HOCl)       = .true.
-    keepSpcActive(ind_ClNO3)      = .true.
-    keepSpcActive(ind_Cl  )       = .true.
-    keepSpcActive(ind_HBr )       = .true.
-    keepSpcActive(ind_ClO )       = .true.
-    keepSpcActive(ind_HCl )       = .true.
-    keepSpcActive(ind_I2O2)       = .true.
-    keepSpcActive(ind_BrNO2)      = .true.
-    keepSpcActive(ind_Cl2O2)      = .true.
-    keepSpcActive(ind_IONO)       = .true.
-    keepSpcActive(ind_OClO)       = .true.
-    keepSpcActive(ind_HOI)        = .true.
-    keepSpcActive(ind_IONO2)      = .true.
-    keepSpcActive(ind_Cl2)        = .true.
-    keepSpcActive(ind_I)          = .true.
-    keepSpcActive(ind_IO)         = .true.
-    keepSpcActive(ind_BrO)        = .true.
-    keepSpcActive(ind_Br)         = .true.
-
     if (.not.reinit) C(1:NSPEC) = Cinit(1:NSPEC)
     ! --- INTEGRATION & TIMING LOOP
     DO I=1,NAVG ! Iterate to generate average comp time
@@ -241,7 +202,6 @@ CONTAINS
        ! Initialize
        call Initialize()
        VAR = C(1:NVAR)
-       FIX = C(NVAR+1:NSPEC)
        ! Set RCONST
        call Update_RCONST()
        ! Integrate
@@ -311,106 +271,5 @@ CONTAINS
   write(*,'(a,'//lunz//'l4)') ' DO_JVS:   ', DO_JVS
 
   end subroutine showoutput
-
-  subroutine massbalance(C_f, C_o)
-
-    USE GCKPP_Monitor
-    USE GCKPP_Parameters
-
-    IMPLICIT NONE
-
-    real(dp) :: C_o(NSPEC), C_f(NSPEC)
-    real(dp) :: Cl_o_total, Cl_f_total
-    real(dp) :: Br_o_total, Br_f_total
-    real(dp) :: Ox_o_total, Ox_f_total
-    real(dp) :: N_o_total, N_f_total
-    real(dp) :: NOx_o_total, NOx_f_total
-
-    write(*,*) '---  Mass Balances --- '
-    ! Check Cl mass balance
-    Cl_o_total = C_o(ind_CH2ICl)+3.*C_o(ind_CH3CCl3)+4.*C_o(ind_CCl4)+     &
-         2.*C_o(ind_CH2Cl2)+2.*C_o(ind_Cl2O2)+C_o(ind_ICl)+C_o(ind_CH3Cl)+ &
-         C_o(ind_ClOO)+C_o(ind_OClO)+C_o(ind_BrCl)+2.*C_o(ind_Cl2)+        &
-         C_o(ind_ClNO2)+C_o(ind_ClNO3)+C_o(ind_HOCl)+C_o(ind_HCl)+C_o(ind_Cl)+C_o(ind_ClO)
-    
-    Cl_f_total = C_f(ind_CH2ICl)+3.*C_f(ind_CH3CCl3)+4.*C_f(ind_CCl4)+     &
-         2.*C_f(ind_CH2Cl2)+2.*C_f(ind_Cl2O2)+C_f(ind_ICl)+C_f(ind_CH3Cl)+ &
-         C_f(ind_ClOO)+C_f(ind_OClO)+C_f(ind_BrCl)+2.*C_f(ind_Cl2)+        &
-         C_f(ind_ClNO2)+C_f(ind_ClNO3)+C_f(ind_HOCl)+C_f(ind_HCl)+C_f(ind_Cl)+C_f(ind_ClO)
-
-    write(*,*) 'Cl mass balance: ', Cl_f_total - Cl_o_total, 100.*(Cl_f_total - Cl_o_total)/Cl_o_total,'%'
-    ! Check Br mass balance
-    Br_o_total = C_o(ind_CH2IBr)+C_o(ind_BrNO2)+2.*C_o(ind_CH2Br2)+C_o(ind_IBr)+  &
-         3.*C_o(ind_CHBr3)+C_o(ind_CH3Br)+2.*C_o(ind_Br2)+C_o(ind_BrCl)+          &
-         C_o(ind_BrNO3)+C_o(ind_HOBr)+C_o(ind_BrO)+C_o(ind_BrSALA)+ &
-         C_o(ind_BrSALC)+C_o(ind_Br)+C_o(ind_HBr)
-
-    Br_f_total = C_f(ind_CH2IBr)+C_f(ind_BrNO2)+2.*C_f(ind_CH2Br2)+C_f(ind_IBr)+  &
-         3.*C_f(ind_CHBr3)+C_f(ind_CH3Br)+2.*C_f(ind_Br2)+C_f(ind_BrCl)+          &
-         C_f(ind_BrNO3)+C_f(ind_HOBr)+C_f(ind_BrO)+C_f(ind_BrSALA)+ &
-         C_f(ind_BrSALC)+C_f(ind_Br)+C_f(ind_HBr)
-
-    write(*,*) 'Br mass balance: ', Br_f_total - Br_o_total, 100.*(Br_f_total - Br_o_total)/Br_o_total,'%'
-    ! Check N  mass balance
-
-    ! Check Ox mass balance
-    Ox_o_total = C_o(ind_O3) + C_o(ind_NO2) + 2.*C_o(ind_NO3) + C_o(ind_PAN) +   &
-         C_o(ind_PPN) + C_o(ind_MPAN) + C_o(ind_HNO4) + 3.*C_o(ind_N2O5) +        &
-         C_o(ind_HNO3) + C_o(ind_BrO) + C_o(ind_HOBr) + C_o(ind_BrNO2) +          &
-         2.*C_o(ind_BrNO3) + C_o(ind_MPN) + C_o(ind_ETHLN) + C_o(ind_MVKN) +      &
-         C_o(ind_MCRHN) + C_o(ind_MCRHNB) + C_o(ind_PROPNN) + C_o(ind_R4N2) +     &
-         C_o(ind_PRN1) + C_o(ind_PRPN) + C_o(ind_R4N1) + C_o(ind_HONIT) +         &
-         C_o(ind_MONITS) + C_o(ind_MONITU) + C_o(ind_OLND) + C_o(ind_OLNN) +      &
-         C_o(ind_IHN1) + C_o(ind_IHN2) + C_o(ind_IHN3) + C_o(ind_IHN4) +          &
-         C_o(ind_INPB) + C_o(ind_INPD) + C_o(ind_ICN) + 2.*C_o(ind_IDN) +         &
-         C_o(ind_ITCN) + C_o(ind_ITHN) + C_o(ind_ISOPNOO1) + C_o(ind_ISOPNOO2) +  &
-         C_o(ind_INO2B) + C_o(ind_INO2D) + C_o(ind_INA) + C_o(ind_IDHNBOO) +      &
-         C_o(ind_IDHNDOO1) + C_o(ind_IDHNDOO2) + C_o(ind_IHPNBOO) +               &
-         C_o(ind_IHPNDOO) + C_o(ind_ICNOO) + 2.*C_o(ind_IDNOO) + C_o(ind_MACRNO2) + &
-         C_o(ind_ClO) + C_o(ind_HOCl) + C_o(ind_ClNO2) + 2.*C_o(ind_ClNO3) +      &
-         2.*C_o(ind_Cl2O2) + 2.*C_o(ind_OClO) + C_o(ind_O) + C_o(ind_O1D) +       &
-         C_o(ind_IO) + C_o(ind_HOI)+ C_o(ind_IONO) + 2.*C_o(ind_IONO2) +          &
-         2.*C_o(ind_OIO) + 2.*C_o(ind_I2O2) + 3.*C_o(ind_I2O3) + 4.*C_o(ind_I2O4)
-
-    Ox_f_total = C_f(ind_O3) + C_f(ind_NO2) + 2.*C_f(ind_NO3) + C_f(ind_PAN) +   &
-         C_f(ind_PPN) + C_f(ind_MPAN) + C_f(ind_HNO4) + 3.*C_f(ind_N2O5) +        &
-         C_f(ind_HNO3) + C_f(ind_BrO) + C_f(ind_HOBr) + C_f(ind_BrNO2) +          &
-         2.*C_f(ind_BrNO3) + C_f(ind_MPN) + C_f(ind_ETHLN) + C_f(ind_MVKN) +      &
-         C_f(ind_MCRHN) + C_f(ind_MCRHNB) + C_f(ind_PROPNN) + C_f(ind_R4N2) +     &
-         C_f(ind_PRN1) + C_f(ind_PRPN) + C_f(ind_R4N1) + C_f(ind_HONIT) +         &
-         C_f(ind_MONITS) + C_f(ind_MONITU) + C_f(ind_OLND) + C_f(ind_OLNN) +      &
-         C_f(ind_IHN1) + C_f(ind_IHN2) + C_f(ind_IHN3) + C_f(ind_IHN4) +          &
-         C_f(ind_INPB) + C_f(ind_INPD) + C_f(ind_ICN) + 2.*C_f(ind_IDN) +         &
-         C_f(ind_ITCN) + C_f(ind_ITHN) + C_f(ind_ISOPNOO1) + C_f(ind_ISOPNOO2) +  &
-         C_f(ind_INO2B) + C_f(ind_INO2D) + C_f(ind_INA) + C_f(ind_IDHNBOO) +      &
-         C_f(ind_IDHNDOO1) + C_f(ind_IDHNDOO2) + C_f(ind_IHPNBOO) +               &
-         C_f(ind_IHPNDOO) + C_f(ind_ICNOO) + 2.*C_f(ind_IDNOO) + C_f(ind_MACRNO2) + &
-         C_f(ind_ClO) + C_f(ind_HOCl) + C_f(ind_ClNO2) + 2.*C_f(ind_ClNO3) +      &
-         2.*C_f(ind_Cl2O2) + 2.*C_f(ind_OClO) + C_f(ind_O) + C_f(ind_O1D) +       &
-         C_f(ind_IO) + C_f(ind_HOI)+ C_f(ind_IONO) + 2.*C_f(ind_IONO2) +          &
-         2.*C_f(ind_OIO) + 2.*C_f(ind_I2O2) + 3.*C_f(ind_I2O3) + 4.*C_f(ind_I2O4)
-
-    write(*,*) 'Ox mass balance: ', Ox_f_total - Ox_o_total, 100.*(Ox_f_total - Ox_o_total)/Ox_o_total,'%'
-
-    N_o_total = C_o(ind_HNO2) + C_o(ind_HNO3) + C_o(ind_HNO4) + C_o(ind_MPAN) +    &
-         C_o(ind_NIT) + C_o(ind_NO) + C_o(ind_NO2) + C_o(ind_NO3) +                &
-         2.*C_o(ind_N2O5) + C_o(ind_MPN) + C_o(ind_PAN) + C_o(ind_PPN) +           &
-         2.*C_o(ind_N2O) + C_o(ind_MENO3) + C_o(ind_ETNO3) + C_o(ind_IPRNO3) +     &
-         C_o(ind_NPRNO3) + C_o(ind_AONITA) + C_o(ind_ETHN) + C_o(ind_BZPAN) + C_o(ind_NPHEN)
-
-    N_f_total = C_f(ind_HNO2) + C_f(ind_HNO3) + C_f(ind_HNO4) + C_f(ind_MPAN) +    &
-         C_f(ind_NIT) + C_f(ind_NO) + C_f(ind_NO2) + C_f(ind_NO3) +                &
-         2.*C_f(ind_N2O5) + C_f(ind_MPN) + C_f(ind_PAN) + C_f(ind_PPN) +           &
-         2.*C_f(ind_N2O) + C_f(ind_MENO3) + C_f(ind_ETNO3) + C_f(ind_IPRNO3) +     &
-         C_f(ind_NPRNO3) + C_f(ind_AONITA) + C_f(ind_ETHN) + C_f(ind_BZPAN) + C_f(ind_NPHEN)
-
-    write(*,*) 'N mass balance: ', N_f_total - N_o_total, 100.*(N_f_total - N_o_total)/N_o_total,'%'
-
-    NOx_o_total = C_o(ind_NO) + C_o(ind_NO2) + C_o(ind_NO3)
-    NOx_f_total = C_f(ind_NO) + C_f(ind_NO2) + C_f(ind_NO3)
-
-    write(*,*) 'NOx mass balance: ', NOx_f_total - NOx_o_total, 100.*(NOx_f_total - NOx_o_total)/NOx_o_total,'%'
-
-  end subroutine massbalance
 
 end program main

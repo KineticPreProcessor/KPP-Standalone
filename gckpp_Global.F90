@@ -37,7 +37,6 @@ MODULE gckpp_Global
   REAL(kind=dp) :: FIX(NFIX)
 ! VAR, FIX are chunks of array C
 !      EQUIVALENCE( C(1),VAR(1) )
-!      EQUIVALENCE( C(288),FIX(1) )
 ! RCONST - Rate constants (global)
   REAL(kind=dp) :: RCONST(NREACT)
 ! TIME - Current integration time
@@ -98,19 +97,6 @@ MODULE gckpp_Global
 !$OMP THREADPRIVATE(  cLU_DIAG, JVS_MAP, SPC_MAP, iSPC_MAP, RMV, rNVAR, cNONZERO, KEEPACTIVE )
 
 ! INLINED global variable declarations
-
-      REAL(kind=dp) :: R(NREACT)
-!>>      LOGICAL :: DO_JVS(LU_NONZERO)
-!>>      LOGICAL :: DO_SLV(NVAR+1)
-!>>      LOGICAL :: DO_FUN(NVAR)
-!>>      INTEGER :: cLU_IROW(LU_NONZERO)  ! Compacted ROW indexes
-!>>      INTEGER :: cLU_ICOL(LU_NONZERO)  ! Compacted COL indexes
-!>>      INTEGER :: cLU_CROW(NVAR+1)  ! Compacted compressed row vector
-!>>      INTEGER :: cLU_DIAG(NVAR+1)  ! Compacted DIAG indexes
-!>>      INTEGER :: JVS_MAP(LU_NONZERO)   ! Map to JVS from compacted sparse datMCRHP
-!>>      INTEGER :: SPC_MAP(NVAR)   ! Map species (for Fun(), etc.)
-!>>      INTEGER :: rNVAR     ! Compacted number of variable species
-!>>      INTEGER :: cNONZERO  ! Compacted number of non-zero elements in cJVS
 
 ! INLINED global variable declarations
 
