@@ -1974,11 +1974,13 @@ END SUBROUTINE cWAXPY
            S=S+1
         ENDDO
         rNVAR    = NVAR-NRMV ! Number of active species in the reduced mechanism
-        
-        if (dble(rNVAR)/dble(NVAR) .ge. 0.6) then
-           IERR = -99
-           return
-        endif
+ 
+        ! Problem size cut-off. If problem is greater than some fraction of the 
+        ! full, just solve the full (via error value) -- MSL
+!XXX        if (dble(rNVAR)/dble(NVAR) .ge. 0.6) then
+!XXX           IERR = -99
+!XXX           return
+!XXX        endif
 
         II  = 1
         III = 1
