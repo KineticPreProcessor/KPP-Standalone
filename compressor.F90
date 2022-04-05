@@ -25,7 +25,7 @@ program main
   INTEGER, ALLOCATABLE :: rLU_IROW(:), rLU_ICOL(:) ! temporary, for display purposes
   LOGICAL, ALLOCATABLE :: tDO_FUN(:), tDO_SLV(:), tDO_JVS(:)
 
-  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), AR_threshold, Cfull(NSPEC),Credux(NSPEC), RRMS
+  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), AR_threshold, Cfull(NSPEC),Credux(NSPEC), RRMS, RRMS2
   REAL(dp)             :: A(NREACT), Prod(NVAR), Loss(NVAR)
 
   LOGICAL              :: OUTPUT
@@ -38,10 +38,10 @@ program main
 
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NAVG iteration
-!  REINIT       = .false. ! Let C evolve over the NAVG loop
-  NAVG         = 100
-  AR_threshold = 1e-2 ! Threshold value for AR
-  SCENARIO     = 4
+  REINIT       = .false. ! Let C evolve over the NAVG loop
+  NAVG         = 10
+  AR_threshold = 100 ! Threshold value for AR
+  SCENARIO     = 999
 
   R     = 0._dp
   Cinit = 0._dp
@@ -55,6 +55,8 @@ program main
        call initialize_namericaday(Cinit, R) ! N. America, surface, day, July 1
   IF (SCENARIO .eq. 4) &
        call initialize_satlnight(Cinit, R) ! S. Mid Atlantic, midtrop, night, July 1
+  IF (SCENARIO .eq. 999) &
+       call initialize_debug(Cinit, R) ! 13.4 debug condition
 
 !  where (Cinit .eq. 0.d0) Cinit = 1e-20 ! Set min concentration, if needed
 
@@ -89,6 +91,9 @@ program main
   RRMS = sqrt(sum(((Credux(SPC_MAP(1:rNVAR))-Cfull(SPC_MAP(1:rNVAR)))/Cfull(SPC_MAP(1:rNVAR)))**2,&
        MASK=Cfull(SPC_MAP(1:rNVAR)).ne.0..and.Cfull(SPC_MAP(1:rNVAR)).gt.1e6_dp)/dble(rNVAR))
 
+  RRMS2 = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
+       MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e2_dp)/dble(NVAR))
+
   ! -------------------------------------------------------------------------- !
   ! 5. Report timing comparison
 
@@ -96,6 +101,7 @@ program main
   write(*,*) ' '
   write(*,'(a,e9.1)')   '     threshold: ', AR_threshold
   write(*,'(a,f6.2,a)') '          RRMS: ', 100.*RRMS,"%"
+  write(*,'(a,f6.2,a)') '         RRMS2: ', 100.*RRMS2,"%"
   write(*,'(a,f6.2,a)') '  AR/full time: ', 100.*compact_avg/full_avg, "%" 
   write(*,'(a,f6.2,a)') '  problem size: ', 100.*(rNVAR)/(NVAR), "%"
   write(*,'(a,f6.2,a)') '  non-zero elm: ', 100.*(cNONZERO)/(LU_NONZERO), "%"
@@ -325,6 +331,7 @@ CONTAINS
     real(dp) :: Ox_o_total, Ox_f_total
     real(dp) :: N_o_total, N_f_total
     real(dp) :: NOx_o_total, NOx_f_total
+    real(dp) :: SO4s_o_total, SO4s_f_total
 
     write(*,*) '---  Mass Balances --- '
     ! Check Cl mass balance
@@ -410,6 +417,11 @@ CONTAINS
     NOx_f_total = C_f(ind_NO) + C_f(ind_NO2) + C_f(ind_NO3)
 
     write(*,*) 'NOx mass balance: ', NOx_f_total - NOx_o_total, 100.*(NOx_f_total - NOx_o_total)/NOx_o_total,'%'
+
+    SO4s_o_total = C_o(ind_SO4s)
+    SO4s_f_total = C_f(ind_SO4s)
+
+    write(*,*) 'SO4s mass balance: ', SO4s_f_total - SO4s_o_total, 100.*(SO4s_f_total - SO4s_o_total)/SO4s_o_total, '%'
 
   end subroutine massbalance
 

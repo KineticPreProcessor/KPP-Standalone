@@ -1,11 +1,11 @@
-#INTEGRATOR rosenbrock_autoreduce_append
+#INTEGRATOR rosenbrock_autoreduce
 #LANGUAGE Fortran90
 #DRIVER none
 #HESSIAN off
 #MEX off
 #STOICMAT off
 
-#INCLUDE v13.3.eqn
+#INCLUDE v13.4.eqn
 
 #FAMILIES
 POx : O3; 
@@ -29,4 +29,14 @@ PH2O2 : H2O2;
 !>>      INTEGER :: SPC_MAP(NVAR)   ! Map species (for Fun(), etc.)
 !>>      INTEGER :: rNVAR     ! Compacted number of variable species
 !>>      INTEGER :: cNONZERO  ! Compacted number of non-zero elements in cJVS
+#ENDINLINE
+
+#INLINE F90_RATES
+  ! All rates are included in aerochem_RateLawFuncs.F90, which
+  ! gets referenced directly from subroutine Update_Rconst.
+  !
+  ! For some reason this is necessary to prevent a segfault with GCKPP. Keep this
+  ! if gdb says that p 'gen.c'::InlineCode[F90_RATES] has {code = 0x0}
+  ! hours_wasted_debugging = 0.2
+  ! hplin, 4/6/22
 #ENDINLINE
