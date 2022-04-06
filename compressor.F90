@@ -25,7 +25,7 @@ program main
   INTEGER, ALLOCATABLE :: rLU_IROW(:), rLU_ICOL(:) ! temporary, for display purposes
   LOGICAL, ALLOCATABLE :: tDO_FUN(:), tDO_SLV(:), tDO_JVS(:)
 
-  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), AR_threshold, Cfull(NSPEC),Credux(NSPEC), RRMS
+  REAL(dp)             :: dcdt(NVAR), RxR(NREACT), cinit(NSPEC), AR_threshold, Cfull(NSPEC),Credux(NSPEC), RRMS, RRMS2
   REAL(dp)             :: A(NREACT), Prod(NVAR), Loss(NVAR)
 
   LOGICAL              :: OUTPUT
@@ -85,9 +85,11 @@ program main
 
   ! -------------------------------------------------------------------------- !
   ! 3. Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
+  !
+  ! RRMS is based off metrics by Eller et al. (2009) and Santillana et al. (2010)
 
-  RRMS = sqrt(sum(((Credux(SPC_MAP(1:rNVAR))-Cfull(SPC_MAP(1:rNVAR)))/Cfull(SPC_MAP(1:rNVAR)))**2,&
-       MASK=Cfull(SPC_MAP(1:rNVAR)).ne.0..and.Cfull(SPC_MAP(1:rNVAR)).gt.1e6_dp)/dble(rNVAR))
+  RRMS = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
+       MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e6_dp)/dble(rNVAR))
 
   ! -------------------------------------------------------------------------- !
   ! 5. Report timing comparison
@@ -96,6 +98,7 @@ program main
   write(*,*) ' '
   write(*,'(a,e9.1)')   '     threshold: ', AR_threshold
   write(*,'(a,f6.2,a)') '          RRMS: ', 100.*RRMS,"%"
+  ! write(*,'(a,f6.2,a)') '         RRMS2: ', 100.*RRMS2,"%"
   write(*,'(a,f6.2,a)') '  AR/full time: ', 100.*compact_avg/full_avg, "%" 
   write(*,'(a,f6.2,a)') '  problem size: ', 100.*(rNVAR)/(NVAR), "%"
   write(*,'(a,f6.2,a)') '  non-zero elm: ', 100.*(cNONZERO)/(LU_NONZERO), "%"
