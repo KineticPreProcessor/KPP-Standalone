@@ -60,6 +60,8 @@ program main
 
 !  where (Cinit .eq. 0.d0) Cinit = 1e-20 ! Set min concentration, if needed
 
+  ! R(1:12) = 0._dp
+
   write(*,*) ' '
   write(*,*) 'The KPP Auto-reduction test boxmodel'
   write(*,*) ' '
@@ -84,7 +86,7 @@ program main
   call compactedmech()
   Credux = C
   
-  call massbalance(Credux, Cfull)
+  call massbalance(Credux, Cfull, Cinit)
 
   ! -------------------------------------------------------------------------- !
   ! 3. Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
@@ -319,14 +321,14 @@ CONTAINS
 
   end subroutine showoutput
 
-  subroutine massbalance(C_f, C_o)
+  subroutine massbalance(C_f, C_o, Cinit)
 
     USE GCKPP_Monitor
     USE GCKPP_Parameters
 
     IMPLICIT NONE
 
-    real(dp) :: C_o(NSPEC), C_f(NSPEC)
+    real(dp) :: C_o(NSPEC), C_f(NSPEC), Cinit(NSPEC)
     real(dp) :: Cl_o_total, Cl_f_total
     real(dp) :: Br_o_total, Br_f_total
     real(dp) :: Ox_o_total, Ox_f_total
@@ -434,6 +436,7 @@ CONTAINS
     SO4s_f_total = C_f(ind_SO4s)
 
     write(*,*) 'SO4s mass balance: ', SO4s_f_total - SO4s_o_total, 100.*(SO4s_f_total - SO4s_o_total)/SO4s_o_total, '%'
+    write(*,*) C_o(ind_SO4s), C_f(ind_SO4s), Cinit(ind_SO4s)
 
   end subroutine massbalance
 
