@@ -63,6 +63,7 @@ program main
   write(*,*) ' '
   write(*,*) 'The KPP Auto-reduction test boxmodel'
   write(*,*) ' '
+  if (.not. REINIT) write(*,*) '=> the mechanism will not be reinitialized after every run'
   write(*,*) ' '
   write(*,*) 'Running the full mechanism for memory initialization'
   write(*,*) '... '
@@ -88,8 +89,8 @@ program main
   ! -------------------------------------------------------------------------- !
   ! 3. Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
 
-  RRMS = sqrt(sum(((Credux(SPC_MAP(1:rNVAR))-Cfull(SPC_MAP(1:rNVAR)))/Cfull(SPC_MAP(1:rNVAR)))**2,&
-       MASK=Cfull(SPC_MAP(1:rNVAR)).ne.0..and.Cfull(SPC_MAP(1:rNVAR)).gt.1e6_dp)/dble(rNVAR))
+  RRMS = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
+       MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e6_dp)/dble(NVAR))
 
   RRMS2 = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
        MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e2_dp)/dble(NVAR))
@@ -331,7 +332,8 @@ CONTAINS
     real(dp) :: Ox_o_total, Ox_f_total
     real(dp) :: N_o_total, N_f_total
     real(dp) :: NOx_o_total, NOx_f_total
-    real(dp) :: SO4s_o_total, SO4s_f_total
+    real(dp) :: NO2_o_total, NO2_f_total
+    real(dp) :: SO4s_o_total, SO4s_f_total, SO4_o_total, SO4_f_total
 
     write(*,*) '---  Mass Balances --- '
     ! Check Cl mass balance
@@ -417,6 +419,16 @@ CONTAINS
     NOx_f_total = C_f(ind_NO) + C_f(ind_NO2) + C_f(ind_NO3)
 
     write(*,*) 'NOx mass balance: ', NOx_f_total - NOx_o_total, 100.*(NOx_f_total - NOx_o_total)/NOx_o_total,'%'
+
+    NO2_o_total = C_o(ind_NO2)
+    NO2_f_total = C_f(ind_NO2)
+
+    write(*,*) 'NO2 mass balance: ', NO2_f_total - NO2_o_total, 100.*(NO2_f_total - NO2_o_total)/NOx_o_total,'%'
+
+    SO4_o_total = C_o(ind_SO4)
+    SO4_f_total = C_f(ind_SO4)
+
+    write(*,*) 'SO4 mass balance: ', SO4_f_total - SO4_o_total, 100.*(SO4_f_total - SO4_o_total)/SO4_o_total, '%'
 
     SO4s_o_total = C_o(ind_SO4s)
     SO4s_f_total = C_f(ind_SO4s)
