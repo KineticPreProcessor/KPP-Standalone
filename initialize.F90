@@ -12,7 +12,7 @@ contains
     real(dp), intent(out) :: R(NREACT)
 
     ! No blank spaces between /^/ and #
-#include "archive_13.4_conditions/boxdebug_13.4_so4s_134_55_1.txt"
+#include "archive_13.4_conditions/boxdebug_13.4_no2_21_88_27.txt"
 
   end subroutine initialize_debug
 

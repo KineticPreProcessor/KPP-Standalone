@@ -4,7 +4,8 @@ program main
   USE GCKPP_JACOBIANSP
   USE GCKPP_PARAMETERS
   USE GCKPP_MONITOR
-  USE INITIALIZE
+  ! USE INITIALIZE
+  USE INITIALIZE_FINAL
 
   IMPLICIT NONE
 
@@ -14,6 +15,7 @@ program main
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, start2, end
   REAL :: full_sumtime, comp_sumtime, compact_avg, full_avg, setup_time
+  REAL :: compact_best, full_best
 
   ! COMPACTION
   INTEGER :: REMOVE(NVAR)    ! Vector of species indexes to be removed from full mechanism
@@ -38,32 +40,43 @@ program main
 
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NAVG iteration
-  REINIT       = .false. ! Let C evolve over the NAVG loop
-  NAVG         = 10
+   REINIT       = .false. ! Let C evolve over the NAVG loop
+  NAVG         = 500
   AR_threshold = 100 ! Threshold value for AR
-  SCENARIO     = 999
+  SCENARIO     = 4
 
   R     = 0._dp
   Cinit = 0._dp
   cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
 
-  IF (SCENARIO .eq. 1) &
-       call initialize_sunrise(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
-  IF (SCENARIO .eq. 2) &
-       call initialize_sunrisemidtrop(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
-  IF (SCENARIO .eq. 3) &
-       call initialize_namericaday(Cinit, R) ! N. America, surface, day, July 1
-  IF (SCENARIO .eq. 4) &
-       call initialize_satlnight(Cinit, R) ! S. Mid Atlantic, midtrop, night, July 1
-  IF (SCENARIO .eq. 999) &
-       call initialize_debug(Cinit, R) ! 13.4 debug condition
+  ! GC v13.4 test scenarios for manuscript. INITIALIZE_FINAL
+  IF (Scenario .eq. 1) call initialize_sunrise(Cinit, R)
+  IF (Scenario .eq. 2) call initialize_sunrise_500(Cinit, R)
+  IF (Scenario .eq. 3) call initialize_na_daytime(Cinit, R)
+  IF (Scenario .eq. 4) call initialize_satl_nighttime(Cinit, R)
+
+  IF (Scenario .ge. 5) write(6,*) "ERROR: You might be running with empty conditions!!!"
+
+
+  ! Previous GC v13.3 scenarios
+  ! IF (SCENARIO .eq. 1) &
+  !      call initialize_sunrise(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
+  ! IF (SCENARIO .eq. 2) &
+  !      call initialize_sunrisemidtrop(Cinit, R) ! Sunrise, surface, E. Indian ocean, July 1
+  ! IF (SCENARIO .eq. 3) &
+  !      call initialize_namericaday(Cinit, R) ! N. America, surface, day, July 1
+  ! IF (SCENARIO .eq. 4) &
+  !      call initialize_satlnight(Cinit, R) ! S. Mid Atlantic, midtrop, night, July 1
+  ! IF (SCENARIO .eq. 999) &
+  !      call initialize_debug(Cinit, R) ! 13.4 debug condition
 
 !  where (Cinit .eq. 0.d0) Cinit = 1e-20 ! Set min concentration, if needed
-
-  ! R(1:12) = 0._dp
+  ! R(639) = 0
+  ! R(625) = 0
 
   write(*,*) ' '
   write(*,*) 'The KPP Auto-reduction test boxmodel'
+  write(*,*) 'Mechanism: GC v13.4'
   write(*,*) ' '
   if (.not. REINIT) write(*,*) '=> the mechanism will not be reinitialized after every run'
   write(*,*) ' '
@@ -86,7 +99,6 @@ program main
   call compactedmech()
   Credux = C
   
-  call massbalance(Credux, Cfull, Cinit)
 
   ! -------------------------------------------------------------------------- !
   ! 3. Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
@@ -94,20 +106,29 @@ program main
   RRMS = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
        MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e6_dp)/dble(NVAR))
 
-  RRMS2 = sqrt(sum(((Credux(:)-Cfull(:))/Cfull(:))**2,&
-       MASK=Cfull(:).ne.0..and.Cfull(:).gt.1e2_dp)/dble(NVAR))
-
   ! -------------------------------------------------------------------------- !
   ! 5. Report timing comparison
 
   write(*,*) ' '
   write(*,*) ' '
-  write(*,'(a,e9.1)')   '     threshold: ', AR_threshold
-  write(*,'(a,f6.2,a)') '          RRMS: ', 100.*RRMS,"%"
-  write(*,'(a,f6.2,a)') '         RRMS2: ', 100.*RRMS2,"%"
-  write(*,'(a,f6.2,a)') '  AR/full time: ', 100.*compact_avg/full_avg, "%" 
-  write(*,'(a,f6.2,a)') '  problem size: ', 100.*(rNVAR)/(NVAR), "%"
-  write(*,'(a,f6.2,a)') '  non-zero elm: ', 100.*(cNONZERO)/(LU_NONZERO), "%"
+  write(*,'(a,e9.4)')   '     threshold:       ', AR_threshold
+  write(*,'(a,f6.2,a)') '          RRMS:       ', 100.*RRMS,"%"
+  ! write(*,'(a,f6.2,a)') '         RRMS2:       ', 100.*RRMS2,"%"
+  write(*,'(a,f6.2,a)') '  AR/full time, mean: ', 100.*compact_avg/full_avg, "%" 
+  write(*,'(a,f6.2,a)') '  AR/full time, best: ', 100.*compact_best/full_best, "%" 
+  write(*,'(a,f6.2,a)') '  problem size:       ', 100.*(rNVAR)/(NVAR), "%"
+  write(*,'(a,f6.2,a)') '  non-zero elm:       ', 100.*(cNONZERO)/(LU_NONZERO), "%"
+
+  call massbalance(Credux, Cfull, Cinit)
+
+  ! 6. Report a pastable result into the final spreadsheet
+  write(*,*) ' '
+  write(*,*) ' '
+  write(6,'(F6.2,F6.2,F7.2,F8.4,F7.2,F8.4)') 100.*(rNVAR)/(NVAR), 100.*(cNONZERO)/(LU_NONZERO), 100.*compact_avg/full_avg, &
+             RRMS, 100.*compact_best/full_best!, RRMS2
+  write(*,*) ' '
+  write(*,*) ' '
+  write(6,*) "above is a spreadsheet-pastable format for: ProblemSize%, NonZero%, AR%(Avg), RRMS%, AR%(Best), RRMS2%"
 
 !  DO i=1,NSPEC
 !     write(*,*) SPC_NAMES(i)
@@ -147,6 +168,7 @@ CONTAINS
     
     if (.not. init) write(*,*) 'Running the full mechanism'
     
+    full_best    = 99999.
     full_avg     = 0.
     full_sumtime = 0.
     start        = 0.
@@ -169,8 +191,10 @@ CONTAINS
        C(1:NVAR)   = VAR(:)
        call cpu_time(end)
        full_sumtime = full_sumtime+end-start
+       if(end-start < full_best) full_best = end-start
     ENDDO
     full_avg = full_sumtime/real(NAVG)
+    if (.not. init) write(*,*) "Best integration time: ", full_best
     if (.not. init) write(*,*) "Average integration time: ", full_avg
     if (.not. init) write(*,'(a,i5)') " Number of iterations: ", NAVG
 
@@ -198,6 +222,9 @@ CONTAINS
     ICNTRL(8) = 1
     RCNTRL(8) = AR_threshold !default is 1.d2
 
+    ! Use append?
+    ICNTRL(9) = 0
+
     ! Tolerances
     ATOL      = 1e-2_dp    
     RTOL      = 1e-2_dp
@@ -210,37 +237,69 @@ CONTAINS
     
     write(*,*) ' '
     write(*,*) 'Running the reduced mechanism'
+    IF (ICNTRL(9) .eq. 1) write(6,*) "Append is ON."
     
-    compact_avg  = 0.
+    compact_best = 99999.
+    compact_avg  = 99999.
     comp_sumtime = 0.
     start        = 0.
     end          = 0.
 
-    keepActive                    = .false.
-    keepSpcActive(ind_ClNO2)      = .true.
-    keepSpcActive(ind_ClOO)       = .true.
-    keepSpcActive(ind_BrCl)       = .true.
-    keepSpcActive(ind_Br2 )       = .true.
-    keepSpcActive(ind_BrNO3)      = .true.
-    keepSpcActive(ind_HOBr)       = .true.
-    keepSpcActive(ind_HOCl)       = .true.
-    keepSpcActive(ind_ClNO3)      = .true.
-    keepSpcActive(ind_Cl  )       = .true.
-    keepSpcActive(ind_HBr )       = .true.
-    keepSpcActive(ind_ClO )       = .true.
-    keepSpcActive(ind_HCl )       = .true.
-    keepSpcActive(ind_I2O2)       = .true.
-    keepSpcActive(ind_BrNO2)      = .true.
-    keepSpcActive(ind_Cl2O2)      = .true.
-    keepSpcActive(ind_IONO)       = .true.
-    keepSpcActive(ind_OClO)       = .true.
-    keepSpcActive(ind_HOI)        = .true.
-    keepSpcActive(ind_IONO2)      = .true.
-    keepSpcActive(ind_Cl2)        = .true.
-    keepSpcActive(ind_I)          = .true.
-    keepSpcActive(ind_IO)         = .true.
-    keepSpcActive(ind_BrO)        = .true.
+    keepActive                    = .true.
+
+    ! Most recent keepActive list for GC 13.4.0.
+    keepSpcActive(ind_SO4s) = .true.
+    keepSpcActive(ind_BENZO2) = .true.
+    keepSpcActive(ind_BENZO ) = .true.
+    keepSpcActive(ind_OH    ) = .true.
+
+    keepSpcActive(ind_AERI )      = .true.  ! Iodine on aerosol
+
     keepSpcActive(ind_Br)         = .true.
+    keepSpcActive(ind_Br2 )       = .true.
+    keepSpcActive(ind_BrCl)       = .true.
+    keepSpcActive(ind_BrNO2)      = .true.
+    keepSpcActive(ind_BrNO3)      = .true.
+    keepSpcActive(ind_BrO)        = .true.
+    keepSpcActive(ind_BrSALA)     = .true.
+    keepSpcActive(ind_BrSALC)     = .true.
+    keepSpcActive(ind_HBr )       = .true.
+    keepSpcActive(ind_HOBr)       = .true.
+
+    keepSpcActive(ind_Cl  )       = .true.
+    keepSpcActive(ind_Cl2)        = .true.
+    keepSpcActive(ind_Cl2O2)      = .true.
+    keepSpcActive(ind_ClNO2)      = .true.
+    keepSpcActive(ind_ClNO3)      = .true.
+    keepSpcActive(ind_ClO )       = .true.
+    keepSpcActive(ind_ClOO)       = .true.
+    keepSpcActive(ind_OClO)       = .true.
+    keepSpcActive(ind_HCl )       = .true.
+    keepSpcActive(ind_HOCl)       = .true.
+
+    keepSpcActive(ind_I)          = .true.
+    keepSpcActive(ind_I2   )      = .true.
+    keepSpcActive(ind_IO)         = .true.
+    keepSpcActive(ind_I2O2)       = .true.
+    keepSpcActive(ind_HI   )      = .true.
+    keepSpcActive(ind_ISALA)      = .true.
+    keepSpcActive(ind_ISALC)      = .true.
+    keepSpcActive(ind_I2O4 )      = .true.
+    keepSpcActive(ind_I2O3 )      = .true.
+    keepSpcActive(ind_INO  )      = .true.
+    keepSpcActive(ind_IONO)       = .true.
+    keepSpcActive(ind_IONO2)      = .true.
+    keepSpcActive(ind_ICl  )      = .true.
+    keepSpcActive(ind_IBr  )      = .true.
+    keepSpcActive(ind_HOI)        = .true.
+
+    keepSpcActive(ind_SALACl)     = .true.
+    keepSpcActive(ind_SALCCl)     = .true.
+    keepSpcActive(ind_SALAAL)     = .true.
+    keepSpcActive(ind_SALCAL)     = .true.
+
+
+    IF ( keepActive ) write(*,*) 'Keepactive ON. check code for list'
 
     if (.not.reinit) C(1:NSPEC) = Cinit(1:NSPEC)
     ! --- INTEGRATION & TIMING LOOP
@@ -259,8 +318,12 @@ CONTAINS
        C(1:NVAR)       = VAR(:)
        call cpu_time(end)
        comp_sumtime = comp_sumtime+end-start
+       ! bench using minimum time - see https://math.mit.edu/~edelman/publications/robust_benchmarking.pdf
+       ! chen et al. (Julia reference)
+       if (end-start < compact_best) compact_best = end-start
     ENDDO
     compact_avg = comp_sumtime/real(NAVG)
+    write(*,*) "Best integration time: ", compact_best
     write(*,*) "Average integration time: ", compact_avg
     write(*,'(a,i5)') " Number of iterations: ", NAVG
     
@@ -425,7 +488,10 @@ CONTAINS
     NO2_o_total = C_o(ind_NO2)
     NO2_f_total = C_f(ind_NO2)
 
-    write(*,*) 'NO2 mass balance: ', NO2_f_total - NO2_o_total, 100.*(NO2_f_total - NO2_o_total)/NOx_o_total,'%'
+    write(*,*) 'NO2 mass balance: ', NO2_f_total - NO2_o_total, 100.*(NO2_f_total - NO2_o_total)/NO2_o_total,'%'
+    write(*,*) C_o(ind_NO2), C_f(ind_NO2), Cinit(ind_NO2)
+    write(*,*) 'NO3 mass balance: ', C_f(ind_NO3) - C_o(ind_NO3), 100.*(C_f(ind_NO3) - C_o(ind_NO3))/C_o(ind_NO3),'%'
+    write(*,*) C_o(ind_NO3), C_f(ind_NO3), Cinit(ind_NO3)
 
     SO4_o_total = C_o(ind_SO4)
     SO4_f_total = C_f(ind_SO4)
