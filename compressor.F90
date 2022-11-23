@@ -39,7 +39,7 @@ program main
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NAVG iteration
 !  REINIT       = .false. ! Let C evolve over the NAVG loop
-  NAVG         = 100
+  NAVG         = 1
   AR_threshold = 1e-2 ! Threshold value for AR
   SCENARIO     = 4
 
@@ -72,7 +72,7 @@ program main
 
   call fullmech(.false.)
   Cfull = C
-  
+
 !  call massbalance(Cfull, Cinit)
 
   ! -------------------------------------------------------------------------- !
@@ -121,10 +121,9 @@ CONTAINS
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RSTATE    = 0.0_dp            ! Rosenbrock output
     ICNTRL    = 0
-    ICNTRL(1) = 1
-    ICNTRL(2) = 0	
-    ICNTRL(3) = 4
-    ICNTRL(7) = 1
+    ICNTRL(1) = 1       ! Autonomous
+    ICNTRL(2) = 1	! Scalar tol
+    ICNTRL(3) = 2       ! Ros3
     
     ! Tolerances
     ATOL      = 1e-2_dp    
@@ -147,17 +146,17 @@ CONTAINS
     ! --- INTEGRATION & TIMING LOOP
     DO I=1,NAVG
        call cpu_time(start)
-       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
        ! Initialize
-       call Initialize()
-       VAR(1:NVAR) = C(1:NVAR)
-       FIX(1:NFIX) = C(NVAR+1:NSPEC)
+!       call Initialize()
+       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
+!       VAR(1:NVAR) = C(1:NVAR)
+!       FIX(1:NFIX) = C(NVAR+1:NSPEC)
        ! Set RCONST
        call Update_RCONST()
        ! Integrate
        CALL Integrate( TIN,    TOUT,    ICNTRL,      &
             RCNTRL, ISTATUS, RSTATE, IERR )
-       C(1:NVAR)   = VAR(:)
+!       C(1:NVAR)   = VAR(:)
        call cpu_time(end)
        full_sumtime = full_sumtime+end-start
     ENDDO
@@ -181,13 +180,13 @@ CONTAINS
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RSTATE    = 0.0_dp            ! Rosenbrock output
     ICNTRL    = 0
-    ICNTRL(1) = 1
-    ICNTRL(2) = 0	
-    ICNTRL(3) = 4
-    ICNTRL(7) = 1
+    ICNTRL(1) = 1       ! Autonomous
+    ICNTRL(2) = 1	! Scalar tol
+    ICNTRL(3) = 2       ! Ros3
+    ICNTRL(12)= 1       ! Autoreduce
     
-    ICNTRL(8) = 1
-    RCNTRL(8) = AR_threshold !default is 1.d2
+    ICNTRL(12)= 1
+    RCNTRL(12)= AR_threshold !default is 1.d2
 
     ! Tolerances
     ATOL      = 1e-2_dp    
@@ -237,17 +236,17 @@ CONTAINS
     ! --- INTEGRATION & TIMING LOOP
     DO I=1,NAVG ! Iterate to generate average comp time
        call cpu_time(start)
-       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
        ! Initialize
-       call Initialize()
-       VAR = C(1:NVAR)
-       FIX = C(NVAR+1:NSPEC)
+!       call Initialize()
+       if (reinit) C(1:NSPEC) = Cinit(1:NSPEC)
+!       VAR = C(1:NVAR)
+!       FIX = C(NVAR+1:NSPEC)
        ! Set RCONST
        call Update_RCONST()
        ! Integrate
        CALL Integrate( TIN,    TOUT,    ICNTRL,      &
             RCNTRL, ISTATUS, RSTATE, IERR )
-       C(1:NVAR)       = VAR(:)
+!       C(1:NVAR)       = VAR(:)
        call cpu_time(end)
        comp_sumtime = comp_sumtime+end-start
     ENDDO

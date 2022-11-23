@@ -1,9 +1,10 @@
-#INTEGRATOR rosenbrock_autoreduce_append
+#INTEGRATOR rosenbrock_autoreduce
 #LANGUAGE Fortran90
 #DRIVER none
 #HESSIAN off
 #MEX off
 #STOICMAT off
+#UPPERCASEF90 on
 
 #INCLUDE v13.3.eqn
 
