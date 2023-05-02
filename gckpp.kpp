@@ -3,10 +3,9 @@
 #DRIVER none
 #HESSIAN off
 #MEX off
-#STOICMAT off
-#UPPERCASEF90 on
+#STOICMAT on
 
-#INCLUDE v13.3.eqn
+#INCLUDE fullchem.eqn
 
 #FAMILIES
 POx : O3; 

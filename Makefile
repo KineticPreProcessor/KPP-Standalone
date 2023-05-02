@@ -37,8 +37,8 @@ FC_HPUX    = f90
 FOPT_HPUX  = -O -u +Oall +check=on
 
 FC_GFORTRAN     = gfortran
-FOPT_GFORTRAN   = -cpp -g -fbacktrace -fcheck=all -ffpe-trap=invalid,zero,overflow #bounds
-#FOPT_GFORTRAN   = -cpp -O 
+#FOPT_GFORTRAN   = -cpp -g -fbacktrace -fcheck=all -ffpe-trap=invalid,zero,overflow #bounds
+FOPT_GFORTRAN   = -cpp -O 
 
 # define FULL_ALGEBRA for non-sparse integration
 FC   = $(FC_$(COMPILER))
@@ -83,6 +83,9 @@ INIOBJ 	 = gckpp_Initialize.o
 SFCSRC   = initialize.F90
 SFCOBJ   = initialize.o
 
+STOICHSRC = gckpp_StoichiomSP.F90 
+STOICHOBJ = gckpp_StoichiomSP.o 
+
 MAINSRC = compressor.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
 MAINOBJ = compressor.o     gckpp_Initialize.o     gckpp_Integrator.o
 
@@ -91,7 +94,7 @@ MAINOBJ = compressor.o     gckpp_Initialize.o     gckpp_Integrator.o
 #       objects needed by your application
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
-	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ)
+	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ) $(STOICHOBJ)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -186,3 +189,6 @@ compressor.o: compressor.F90 $(ALLOBJ)
 
 initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
+
+# preconditioner.o: preconditioner.F90 gckpp_Parameters.o $(ALLOBJ)
+#	$(FC) $(FOPT) -c $<
