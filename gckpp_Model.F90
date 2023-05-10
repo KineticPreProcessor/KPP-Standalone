@@ -15,6 +15,7 @@ MODULE gckpp_Model
   USE gckpp_LinearAlgebra
   USE gckpp_Monitor
   USE gckpp_Util
+  USE gckpp_StoichiomSP
 
 END MODULE gckpp_Model
 

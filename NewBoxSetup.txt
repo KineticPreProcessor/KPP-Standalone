@@ -1,0 +1,11 @@
+Setting up fullchem.eqn to work with the box model, version 14
+1) set macro in ~/.vimrc: let @r = ":s/\:.*/: R\<cr>”
+2) go to line 525 in fullchem.eqn, and execute first macro @r
+3) edit the R after the semi colon to be R(13)
+4) start recording a macro qm<keywords>q: this macro is not easily defined in .vimrc, but was recorded in my ~/.vimfinfo as 
+"m      CHAR    0
+        @r?:^Mnf(ya(/:^MfRp?:^Mf(^A/:^M
+|3,0,22,0,1,0,1680461544,"@r?:^Mnf(ya(/:^MfRp?:^Mf(^A/:^M"    
+4) go to line 526 and type 900@m
+5) hard code the last line: R(913)
+
