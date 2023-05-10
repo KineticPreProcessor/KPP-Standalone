@@ -19,5 +19,5 @@ Figures
 Figure/*
 images
 images/*
-*.txt
+#*.txt
 *.py
