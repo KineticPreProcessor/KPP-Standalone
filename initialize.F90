@@ -54,12 +54,11 @@ subroutine read_input(file_name, R, C, Hstart)
      if (line_num >= NHEADER+1 .and. line_num <= NSPEC+NHEADER) then
         idx = index(line, '=') + 1
         read(line(idx:), *) C(line_num-NHEADER)
-        ! write(*,*) "C = ", C(line_num-NHEADER)
+        write(*,*) "C( ",line_num-NHEADER,  ") = ", C(line_num-NHEADER)
      else if (line_num > NSPEC+NHEADER) then
       idx = index(line, '=') + 1
-      read(line(idx:), *) R(line_num-NHEADER-NREACT)
-      write(*,*) "R = ", R(line_num-NHEADER-NREACT)
-      ! write(*,*) "line(idx:) = ", line(idx:)
+      read(line(idx:), *) R(line_num-NHEADER-NSPEC)
+      write(*,*) "R( ", line_num-NHEADER-NSPEC, ") =", R(line_num-NHEADER-NSPEC)
      end if
      line_num = line_num + 1
   end do
