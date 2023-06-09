@@ -2129,4 +2129,4 @@ Chemical state: C (concentrations), R (rate constants), and A (rates)
  A(         911 ) =   1.862429457662819E-003
  A(         912 ) =    89.2804963941548     
  A(         913 ) =   0.669775407966155     
- Integration counts:     6.000000    
+ Number of internal timesteps:     2.000000    

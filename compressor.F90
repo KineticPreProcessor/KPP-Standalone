@@ -78,7 +78,7 @@ program main
   Cinit = 0._dp
   cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
   
-  call read_input("samples/IndianOcean_L1_20190701_2300.txt", R, Cinit, Hstart)
+  call read_input("samples/IndianOcean_L1_20190702_1130.txt", R, Cinit, Hstart)
   ! potentially pass file string as an input argument
 
   ! IF (SCENARIO .eq. 1) &
@@ -288,7 +288,7 @@ CONTAINS
     full_avg = full_sumtime/real(NAVG)
     if (.not. init) write(*,*) "Average integration time: ", full_avg
     if (.not. init) write(*,'(a,i5)') " Number of iterations: ", NAVG
-    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(Nstp)
+    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
 
     close(998)
 
