@@ -1,5 +1,6 @@
 program main
 
+
   USE GCKPP_GLOBAL
   USE GCKPP_JACOBIANSP
   USE GCKPP_PARAMETERS
@@ -7,12 +8,20 @@ program main
   USE INITIALIZE
   USE gckpp_StoichiomSP
 
+
+
   IMPLICIT NONE
 
-  INTEGER                :: ICNTRL(20), IERR, I, II, III, N
+  INTEGER                :: Experiment
+  INTEGER                :: ICNTRL(20), IERR, I, II, III, N, filecount
   INTEGER                :: ISTATUS(20)
+  INTEGER                :: fileTotSteps
+  INTEGER                :: Exp2TotSteps
+  INTEGER                :: StepsSavedExp2
+  INTEGER                :: level
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
+  REAL(dp)               :: cosSZA
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, start2, end
   REAL :: full_sumtime, comp_sumtime, compact_avg, full_avg, setup_time
@@ -36,14 +45,17 @@ program main
   LOGICAL              :: STOICMAT
 
   ! Variable ATOL?
-  INTEGER              :: VARIABLE_ATOL
+  INTEGER              :: RELAX_RTOL
   
   INTEGER              :: SCENARIO
 
-
-
   ! Formatting vars
   character(len=20) :: lunz, nv, clunz, cnv
+
+  ! Vars for reading batches of files
+  character(len=256) :: filename
+  integer :: iostat
+  integer :: unit
 
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NAVG iteration
@@ -51,10 +63,17 @@ program main
   NAVG         = 1
   AR_threshold = 1e4 ! Threshold value for AR
   SCENARIO     = 1
-  VARIABLE_ATOL = 0 ! if 0, no customized tolerances
-  STOICMAT     = .true. ! Print biadjacency matrix of species reaction graph, spc and rxn list
+  RELAX_RTOL = 0 ! if 0, no P/L species ! 1 tight tolerances for P/L species ! 2 20 species ATOL to concentration ! 3 higher RTOL across the board
+  STOICMAT     = .false. ! Print biadjacency matrix of species reaction graph, spc and rxn list
+  Experiment = 1 ! 1: Run for one initial condition 2: Get species-resolved errors for expensive twilight cases ! 3: Compare two runs with different tolerances
 
+  write(*,*) ' '
+  write(*,*) 'The KPP boxmodel'
+  write(*,*) ' '
+  write(*,*) ' '
+  write(*,*) ' '
 
+! Write biadjacency matrix of species reaction graph, spc and rxn list
    IF (STOICMAT) THEN
     open(990,FILE='BiadjacencyMatrix.csv')
     DO i = 1,size(STOICM)
@@ -74,11 +93,137 @@ program main
      close(992)
    END IF
 
-  R     = 0._dp
-  Cinit = 0._dp
-  cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
-  
-  call read_input("samples/IndianOcean_L1_20190702_1130.txt", R, Cinit, Hstart)
+
+
+   R     = 0._dp
+   Cinit = 0._dp
+   cNONZERO = 0 ! Initialize number of nonzero elements in reduced mechanism
+
+  ! -------------------------------------------------------------------------- !
+  ! Experiment 1: Run for one set of initial conditions
+  !               and print end concentrations to file 
+  IF (Experiment .eq. 1) THEN
+    ! Read the input file
+    open(newunit=unit, file='filelist_exp1.txt', status='old', action='read')
+    read(unit, '(A)', iostat=iostat) filename
+    call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+    ! Run the full mechanism
+    call fullmech(.false.,1)
+    ! Write the concentrations to file
+    open(996,FILE ='final_concentrations_exp1.csv')
+    DO i=1,NSPEC
+        write(996,'(a,f30.6)')  trim(spc_names(i)//", "),C(i)
+    ENDDO
+    close(996)
+  ENDIF
+
+  ! -------------------------------------------------------------------------- !
+  ! Experiment 2: Get species-resolved errors for expensive twilight cases
+  IF (Experiment .eq. 2) THEN
+    ! Open the list of files to be read
+    open(newunit=unit, file='filelist_exp2.txt', status='old', action='read')
+    ! Open the file to write the species-resolved errors
+    open(998,FILE='TwilightSpeciesErrors.csv')
+    write(998,'(a)',advance='NO') 'FileName,cosSZA,Level,NStp,Err,'//trim(spc_names(1))
+    do i=2,NVAR
+      write(998,'(a)',advance='NO') ','//trim(spc_names(i))
+    end do
+    write(998,'(a)') ''
+    filecount = 0
+    do ! Loop over the files in the list
+      read(unit, '(A)', iostat=iostat) filename
+      if (iostat /= 0) exit
+      call read_input(trim(filename), R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+      ! Only focus on files with more than 10 internal timesteps
+      if (fileTotSteps < 10) then
+          cycle
+      endif 
+      filecount = filecount + 1
+      write(*,*) 'Reading file: ', trim(filename)
+      write(*,*) 'file ', filecount
+      ! Run the full mechanism
+      write(998,'(a)',advance='NO') trim(filename)//','
+      write(998,'(e12.4,a,i2,a)',advance='NO') cosSZA,',',level,','
+      call fullmech(.false.,RELAX_RTOL)
+    enddo
+    close(998)
+  ENDIF
+
+  ! -------------------------------------------------------------------------- !
+  RRMS = 1.0_dp
+  ! Experiment 3: Compare two runs with different tolerances
+  IF (Experiment .eq. 3) THEN
+    StepsSavedExp2 = 0
+    Exp2TotSteps = 0
+    open(newunit=unit, file='filelist_exp3.txt', status='old', action='read')
+    filecount = 0
+    open(998,FILE='Experiment2_Err.csv')
+    open(888,FILE='Experiment2_Conc.csv')
+    write(998,'(a)',advance='NO') 'FileName,ADJUST_RTOL,NStp,Err,'//trim(spc_names(1))
+    do i=2,NVAR
+      write(998,'(a)',advance='NO') ','//trim(spc_names(i))
+    end do
+    write(998,'(a)') ''
+    write(888,'(a)',advance='NO') 'FileName,ADJUST_RTOL,NStp,'//trim(spc_names(1))
+    do i=2,NVAR
+      write(888,'(a)',advance='NO') ','//trim(spc_names(i))
+    end do
+    write(888,'(a)') ''
+    do
+      read(unit, '(A)', iostat=iostat) filename
+      if (iostat /= 0) exit
+      call read_input(trim(filename), R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+      if (fileTotSteps < 1.0) then
+          cycle
+      else
+        filecount = filecount + 1
+        write(*,*) "EXPERIMENT ", filecount
+        write(*,*) "File name: ", trim(filename)
+        ! Run the full mechanism
+        write(*,*) 'Running the full mechanism'
+        write(998,'(a)',advance='NO') trim(filename)//',0,'
+        call fullmech(.false.,0) 
+        Cfull = C
+        ! Write the concentrations to 888 Experiment2_Conc.csv
+        write(888,'(a,i0)',advance='NO') trim(filename)//',0,',ISTATUS(3)
+        do i=1,NVAR
+          write(888,'(a,e12.4)',advance='NO') ',',C(i)
+        end do
+        write(888,'(a)') ''
+        StepsSavedExp2 = StepsSavedExp2 + ISTATUS(3)
+        Exp2TotSteps = Exp2TotSteps + ISTATUS(3)
+        if (fileTotSteps .ne. ISTATUS(3)) then
+          write(*,*) "WARNING: fileTotSteps is not equal to ISTATUS(3)"
+          write(*,*) "fileTotSteps: ", fileTotSteps
+           write(*,*)"ISTATUS(3):   ", ISTATUS(3)
+        end if
+        ! Run the compacted mechanism
+        C = Cinit
+        write(*,*) 'Running with customized tolerances'
+        write(998,'(a)',advance='NO') trim(filename)//',1,'
+        call fullmech(.false.,12) 
+        Credux = C
+        write(888,'(a,i0)',advance='NO') trim(filename)//',1,',ISTATUS(3)
+        do i=1,NVAR
+          write(888,'(a,e12.4)',advance='NO') ',',C(i)
+        end do
+        write(888,'(a)') ''
+        StepsSavedExp2 = StepsSavedExp2 - ISTATUS(3)
+        ! Calculate the error norm per Santillana et al. (2010) and Shen et al. (2020)
+        RRMS = sqrt(sum(((Credux-Cfull)/Cfull)**2, MASK=Cfull.ne.0..and.Cfull.gt.1e6_dp)/dble(NSPEC))
+        write(*,'(a,f6.2,a)') '          RRMS: ', 100.*RRMS,"%"
+        write(*,'(a,f6.2,a)') '  NOx relative error: ', 100.*abs(Credux(ind_NO)+Credux(ind_NO2)- &
+                                                                 Cfull(ind_NO)-Cfull(ind_NO2))/ &
+                                                                 (Cfull(ind_NO)+Cfull(ind_NO2)), "%"
+      endif
+    enddo
+    write(*,*) "Total steps saved in Experiment 2: ", StepsSavedExp2, " out of ", Exp2TotSteps, &
+     " total steps, [", 100.*StepsSavedExp2/Exp2TotSteps, "%]"
+  ENDIF
+
+
+  ! call read_input("samples/IndianOcean_L1_20190702_0015.txt", R, Cinit, Hstart,fileTotSteps)
+
   ! potentially pass file string as an input argument
 
   ! IF (SCENARIO .eq. 1) &
@@ -92,18 +237,13 @@ program main
 
 !  where (Cinit .eq. 0.d0) Cinit = 1e-20 ! Set min concentration, if needed
 
-  write(*,*) ' '
-  write(*,*) 'The KPP Auto-reduction test boxmodel'
-  write(*,*) ' '
-  write(*,*) ' '
-  write(*,*) 'Running the full mechanism for memory initialization'
-  write(*,*) '... '
-  write(*,*) ' '
+
   ! -------------------------------------------------------------------------- !
   ! 1. Run the full mechanism
   ! initialization run. Priming memory. Otherwise, first pass is slow
-  ! call fullmech(.true.,VARIABLE_ATOL) 
-  call fullmech(.false.,VARIABLE_ATOL) 
+  ! call fullmech(.true.,RELAX_RTOL) 
+  ! call fullmech(.false.,RELAX_RTOL) 
+
 
 
 !  call fullmech(.false.)
@@ -138,16 +278,16 @@ program main
   
   ! -------------------------------------------------------------------------- !
   ! 6. Write concentrations
-  open(997,FILE ='C.csv')
-  DO i=1,NSPEC
-     write(997,'(a,f30.6)')  trim(spc_names(i)//", "),C(i)
-  ENDDO
+  ! open(997,FILE ='C.csv')
+  ! DO i=1,NSPEC
+  !    write(997,'(a,f30.6)')  trim(spc_names(i)//", "),C(i)
+  ! ENDDO
   ! write(*,*) trim(spc_names(ind_NO2)),"  C(",ind_NO2,")=", C(ind_NO2)
   ! write(*,*) trim(spc_names(ind_O3)),"  C(",ind_NO2,")=", C(ind_O3)
 
 CONTAINS
 
-  subroutine fullmech( init , VARIABLE_ATOL)
+  subroutine fullmech( init , RELAX_RTOL)
     USE GCKPP_INTEGRATOR
     USE GCKPP_RATES
     USE GCKPP_INITIALIZE
@@ -156,89 +296,391 @@ CONTAINS
     IMPLICIT NONE
 
     LOGICAL :: init
-    INTEGER :: VARIABLE_ATOL
+    INTEGER :: RELAX_RTOL
 
     ! Set OPTIONS
     IERR      = 0                 ! Success or failure flag
     ISTATUS   = 0                 ! Rosenbrock output 
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RCNTRL(3) = Hstart
-    write(*,*) "RCNTRL(3) =", Hstart
     RSTATE    = 0.0_dp            ! Rosenbrock output
     ICNTRL    = 0
     ICNTRL(1) = 1
     ICNTRL(2) = 0	
     ICNTRL(3) = 4
     ICNTRL(7) = 1
+    ICNTRL(15) = -1
     
     ! Tolerances
     ATOL      = 1e-2_dp
-    RTOL      = 1e-2_dp
+    RTOL      = 0.5e-2_dp
 
-    IF (VARIABLE_ATOL .eq. 1 ) THEN
-      ! call precondition_sunrise(ATOL) !
-      ! ATOL(ind_I2O2) = 1e-2
-       ATOL(ind_I2O2)   = MAX(C(ind_I2O2),1e4_dp)
-       ATOL(ind_I2O4)   = MAX(C(ind_I2O4),1e4_dp)
-       ATOL(ind_IO)     = MAX(C(ind_IO) ,1e4_dp)
-       ATOL(ind_O)      = MAX(C(ind_O) ,1e4_dp)
-       ATOL(ind_HNO4)   = MAX(C(ind_HNO4) ,1e4_dp)
-       ATOL(ind_OIO)    = MAX(C(ind_OIO) ,1e4_dp)
-       ATOL(ind_Cl)     = MAX(C(ind_Cl) ,1e4_dp)
-       ATOL(ind_ClOO)   = MAX(C(ind_ClOO) ,1e4_dp)
-       ATOL(ind_I2O3)   = MAX(C(ind_I2O3) ,1e4_dp)
-       ATOL(ind_HOBr)   = MAX(C(ind_HOBr) ,1e4_dp)
-       ATOL(ind_HO2)    = MAX(C(ind_HO2) ,1e4_dp)
-       ATOL(ind_OH)     = MAX(C(ind_OH) ,1e4_dp)
-       ATOL(ind_I)      = MAX(C(ind_I) ,1e4_dp)
-       ATOL(ind_Br)     = MAX(C(ind_Br) ,1e4_dp)
-       ATOL(ind_CO2)    = MAX(C(ind_CO2) ,1e4_dp)
-       ATOL(ind_ClO)    = MAX(C(ind_ClO) ,1e4_dp)
-       ATOL(ind_IONO2)  = MAX(C(ind_IONO2) ,1e4_dp)
-       ATOL(ind_N2O5)   = MAX(C(ind_N2O5) ,1e4_dp)
-       ATOL(ind_IONO)   = MAX(C(ind_IONO) ,1e4_dp)
-       ATOL(ind_OClO)   = MAX(C(ind_OClO) ,1e4_dp)
-       write(*,*) "Arbitrary tolerance for prod/loss species"
-       ATOL(ind_LBRO2H)    = 1e25_dp
-       ATOL(ind_LBRO2N)    = 1e25_dp
-       ATOL(ind_LCH4)      = 1e25_dp
-       ATOL(ind_LCO)       = 1e25_dp
-       ATOL(ind_LISOPNO3)  = 1e25_dp
-       ATOL(ind_LISOPOH)   = 1e25_dp
-       ATOL(ind_LNRO2H)    = 1e25_dp
-       ATOL(ind_LNRO2N)    = 1e25_dp
-       ATOL(ind_LOx)       = 1e25_dp
-       ATOL(ind_LTRO2H)    = 1e25_dp
-       ATOL(ind_LTRO2N)    = 1e25_dp
-       ATOL(ind_LXRO2H)    = 1e25_dp
-       ATOL(ind_LXRO2N)    = 1e25_dp
-       ATOL(ind_PCO)       = 1e25_dp
-       ATOL(ind_PH2O2)     = 1e25_dp
-       ATOL(ind_POx)       = 1e25_dp 
-       ATOL(ind_PSO4)      = 1e25_dp
-    END IF
-    IF (VARIABLE_ATOL .eq. 2 ) &
-      call precondition_all(ATOL) !
-    IF (VARIABLE_ATOL .eq. 3) THEN
-     write(*,*) "Arbitrary tolerance for prod/loss species"
-     ATOL(ind_LBRO2H)    = 1e25_dp
-     ATOL(ind_LBRO2N)    = 1e25_dp
-     ATOL(ind_LCH4)      = 1e25_dp
-     ATOL(ind_LCO)       = 1e25_dp
-     ATOL(ind_LISOPNO3)  = 1e25_dp
-     ATOL(ind_LISOPOH)   = 1e25_dp
-     ATOL(ind_LNRO2H)    = 1e25_dp
-     ATOL(ind_LNRO2N)    = 1e25_dp
-     ATOL(ind_LOx)       = 1e25_dp
-     ATOL(ind_LTRO2H)    = 1e25_dp
-     ATOL(ind_LTRO2N)    = 1e25_dp
-     ATOL(ind_LXRO2H)    = 1e25_dp
-     ATOL(ind_LXRO2N)    = 1e25_dp
-     ATOL(ind_PCO)       = 1e25_dp
-     ATOL(ind_PH2O2)     = 1e25_dp
-     ATOL(ind_POx)       = 1e25_dp 
-     ATOL(ind_PSO4)      = 1e25_dp
-    END IF
+    ! P/L Tolerances very high
+    ATOL(ind_LBRO2H)    = 1e25_dp
+    ATOL(ind_LBRO2N)    = 1e25_dp
+    ATOL(ind_LCH4)      = 1e25_dp
+    ATOL(ind_LCO)       = 1e25_dp
+    ATOL(ind_LISOPNO3)  = 1e25_dp
+    ATOL(ind_LISOPOH)   = 1e25_dp
+    ATOL(ind_LNRO2H)    = 1e25_dp
+    ATOL(ind_LNRO2N)    = 1e25_dp
+    ATOL(ind_LOx)       = 1e25_dp
+    ATOL(ind_LTRO2H)    = 1e25_dp
+    ATOL(ind_LTRO2N)    = 1e25_dp
+    ATOL(ind_LXRO2H)    = 1e25_dp
+    ATOL(ind_LXRO2N)    = 1e25_dp
+    ATOL(ind_PCO)       = 1e25_dp
+    ATOL(ind_PH2O2)     = 1e25_dp
+    ATOL(ind_POx)       = 1e25_dp 
+    ATOL(ind_PSO4)      = 1e25_dp
+
+    IF (RELAX_RTOL .eq. 1 ) THEN
+      write(*,*) "Tight tolerance for all species also prod/loss species"
+      ATOL      = 1e-2_dp
+
+    ELSEIF (RELAX_RTOL .eq. 2) THEN
+      ! Old set of stiff species, from a single grid cell in the Indian Ocean
+      RTOL(ind_I2O2) = 8e-1_dp
+      RTOL(ind_I2O4) = 8e-1_dp
+      RTOL(ind_IO) = 8e-1_dp
+      RTOL(ind_O) = 8e-1_dp
+      RTOL(ind_HNO4) = 8e-1_dp
+      RTOL(ind_OIO) = 8e-1_dp
+      RTOL(ind_Cl) = 8e-1_dp
+      RTOL(ind_ClOO) = 8e-1_dp
+      RTOL(ind_I2O3) = 8e-1_dp
+      RTOL(ind_HOBr) = 8e-1_dp
+      RTOL(ind_HO2) = 8e-1_dp
+      RTOL(ind_OH) = 8e-1_dp
+      RTOL(ind_I) = 8e-1_dp
+      RTOL(ind_Br) = 8e-1_dp
+      RTOL(ind_CO2) = 8e-1_dp
+      RTOL(ind_ClO) = 8e-1_dp
+      RTOL(ind_IONO2) = 8e-1_dp
+      RTOL(ind_N2O5) = 8e-1_dp
+      RTOL(ind_IONO) = 8e-1_dp
+      RTOL(ind_OClO) = 8e-1_dp
+
+
+    ELSEIF (RELAX_RTOL .eq. 3) THEN
+      RTOL(ind_BrO) = 0.8_dp
+      RTOL(ind_RCHO) = 0.8_dp
+      RTOL(ind_B3O2) = 0.8_dp
+      RTOL(ind_ATO2) = 0.8_dp
+      RTOL(ind_HOI) = 0.8_dp
+      RTOL(ind_ALD2) = 0.8_dp
+      RTOL(ind_PRPE) = 0.8_dp
+      RTOL(ind_ClO) = 0.8_dp
+      RTOL(ind_R4O2) = 0.8_dp
+      RTOL(ind_HOCl) = 0.8_dp
+      ! RTOL(ind_O3) = 0.8_dp
+      RTOL(ind_MO2) = 0.8_dp
+      RTOL(ind_H2O) = 0.8_dp
+      RTOL(ind_CH2O) = 0.8_dp
+      RTOL(ind_MCO3) = 0.8_dp
+      RTOL(ind_MACR) = 0.8_dp
+      RTOL(ind_MACRNO2) = 0.8_dp
+      RTOL(ind_SALACL) = 0.8_dp
+      RTOL(ind_IONO2) = 0.8_dp
+      RTOL(ind_KO2) = 0.8_dp
+      ! RTOL(ind_HNO3) = 0.8_dp
+      RTOL(ind_HAC) = 0.8_dp
+
+    ELSE IF (RELAX_RTOL .eq. 4) THEN
+      RTOL(ind_BrO) = 0.8_dp
+    RTOL(ind_RCHO) = 0.8_dp
+    RTOL(ind_B3O2) = 0.8_dp
+    RTOL(ind_ATO2) = 0.8_dp
+    RTOL(ind_HOI) = 0.8_dp
+    RTOL(ind_ALD2) = 0.8_dp
+    RTOL(ind_PRPE) = 0.8_dp
+    RTOL(ind_ClO) = 0.8_dp
+    RTOL(ind_R4O2) = 0.8_dp
+    RTOL(ind_HOCl) = 0.8_dp
+    ! RTOL(ind_O3) = 0.8_dp
+    RTOL(ind_MO2) = 0.8_dp
+    RTOL(ind_H2O) = 0.8_dp
+    RTOL(ind_CH2O) = 0.8_dp
+    RTOL(ind_MCO3) = 0.8_dp
+    RTOL(ind_MACR) = 0.8_dp
+    RTOL(ind_MACRNO2) = 0.8_dp
+    RTOL(ind_SALACL) = 0.8_dp
+    RTOL(ind_IONO2) = 0.8_dp
+    RTOL(ind_KO2) = 0.8_dp
+    ! RTOL(ind_HNO3) = 0.8_dp
+    RTOL(ind_HAC) = 0.8_dp
+    RTOL(ind_BrSALC) = 0.8_dp
+    RTOL(ind_NO2) = 0.8_dp
+    RTOL(ind_INO2D) = 0.8_dp
+    RTOL(ind_IHOO1) = 0.8_dp
+    RTOL(ind_HO2) = 0.8_dp
+    RTOL(ind_BrSALA) = 0.8_dp
+    RTOL(ind_I) = 0.8_dp
+    RTOL(ind_ClNO3) = 0.8_dp
+    RTOL(ind_O1D) = 0.8_dp
+
+    ELSEIF (RELAX_RTOL .eq. 5) THEN
+      RTOL(ind_BrO) = 0.8_dp
+    RTOL(ind_RCHO) = 0.8_dp
+    RTOL(ind_B3O2) = 0.8_dp
+    RTOL(ind_ATO2) = 0.8_dp
+    RTOL(ind_HOI) = 0.8_dp
+    RTOL(ind_ALD2) = 0.8_dp
+    RTOL(ind_PRPE) = 0.8_dp
+    RTOL(ind_ClO) = 0.8_dp
+    RTOL(ind_R4O2) = 0.8_dp
+    RTOL(ind_HOCl) = 0.8_dp
+    ! RTOL(ind_O3) = 0.8_dp
+    RTOL(ind_MO2) = 0.8_dp
+    RTOL(ind_H2O) = 0.8_dp
+    RTOL(ind_CH2O) = 0.8_dp
+    RTOL(ind_MCO3) = 0.8_dp
+    RTOL(ind_MACR) = 0.8_dp
+    RTOL(ind_MACRNO2) = 0.8_dp
+    RTOL(ind_SALACL) = 0.8_dp
+    RTOL(ind_IONO2) = 0.8_dp
+    RTOL(ind_KO2) = 0.8_dp
+    ! RTOL(ind_HNO3) = 0.8_dp
+    RTOL(ind_HAC) = 0.8_dp
+    RTOL(ind_BrSALC) = 0.8_dp
+    RTOL(ind_NO2) = 0.8_dp
+    RTOL(ind_INO2D) = 0.8_dp
+    RTOL(ind_IHOO1) = 0.8_dp
+    RTOL(ind_HO2) = 0.8_dp
+    RTOL(ind_BrSALA) = 0.8_dp
+    RTOL(ind_I) = 0.8_dp
+    RTOL(ind_ClNO3) = 0.8_dp
+    RTOL(ind_O1D) = 0.8_dp
+    RTOL(ind_R4N1) = 0.8_dp
+    RTOL(ind_RCO3) = 0.8_dp
+    ! RTOL(ind_NO) = 0.8_dp
+    RTOL(ind_IHOO4) = 0.8_dp
+    RTOL(ind_HCl) = 0.8_dp
+    RTOL(ind_CO) = 0.8_dp
+    RTOL(ind_HOBr) = 0.8_dp
+    RTOL(ind_INO2B) = 0.8_dp
+    RTOL(ind_ITHN) = 0.8_dp
+    RTOL(ind_IDN) = 0.8_dp
+    RTOL(ind_OH) = 0.8_dp
+
+    ELSEIF (RELAX_RTOL .eq. 6) THEN
+      ! top 20 species from all summer cases with 15 or more timesteps
+      RTOL(ind_SALACL) = 0.8_dp
+      RTOL(ind_OH) = 0.8_dp
+      RTOL(ind_ClO) = 0.8_dp
+      RTOL(ind_O) = 0.8_dp
+      RTOL(ind_HO2) = 0.8_dp
+      RTOL(ind_BrSALA) = 0.8_dp
+      RTOL(ind_PRPE) = 0.8_dp
+      RTOL(ind_NO) = 0.8_dp
+      RTOL(ind_BrO) = 0.8_dp
+      RTOL(ind_IDN) = 0.8_dp
+      RTOL(ind_SALCCL) = 0.8_dp
+      RTOL(ind_BrSALC) = 0.8_dp
+      RTOL(ind_IHOO1) = 0.8_dp
+      RTOL(ind_RCHO) = 0.8_dp
+      RTOL(ind_NO3) = 0.8_dp
+      RTOL(ind_ALD2) = 0.8_dp
+      RTOL(ind_ITHN) = 0.8_dp
+      RTOL(ind_INO2D) = 0.8_dp
+      RTOL(ind_R4O2) = 0.8_dp
+      RTOL(ind_CH2O) = 0.8_dp
+      ELSEIF (RELAX_RTOL .eq. 7) THEN
+        ! top 20 species from SumScaledErrorNorm of all summer cases with 10 or more timesteps
+        RTOL(ind_INO) = 0.8_dp
+        RTOL(ind_OIO) = 0.8_dp
+        RTOL(ind_I2) = 0.8_dp
+        RTOL(ind_I2O2) = 0.8_dp
+        RTOL(ind_Br) = 0.8_dp
+        RTOL(ind_I2O3) = 0.8_dp
+        RTOL(ind_I2O4) = 0.8_dp
+        RTOL(ind_OClO) = 0.8_dp
+        RTOL(ind_CO2) = 0.8_dp
+        RTOL(ind_I) = 0.8_dp
+        RTOL(ind_OH) = 0.8_dp
+        RTOL(ind_IONO) = 0.8_dp
+        RTOL(ind_Cl) = 0.8_dp
+        RTOL(ind_H) = 0.8_dp
+        RTOL(ind_BrNO2) = 0.8_dp
+        RTOL(ind_NO3) = 0.8_dp
+        RTOL(ind_NO) = 0.8_dp
+        RTOL(ind_IO) = 0.8_dp
+        RTOL(ind_HOBr) = 0.8_dp
+        RTOL(ind_HO2) = 0.8_dp
+      ELSEIF (RELAX_RTOL .eq. 8) THEN
+        ! top 20 species from SumScaledErrorNorm of all summer cases with 8 or more timesteps
+        RTOL(ind_INO) = 0.8_dp
+        RTOL(ind_I2) = 0.8_dp
+        RTOL(ind_OIO) = 0.8_dp
+        RTOL(ind_I2O2) = 0.8_dp
+        RTOL(ind_H) = 0.8_dp
+        RTOL(ind_Br) = 0.8_dp
+        RTOL(ind_I2O3) = 0.8_dp
+        RTOL(ind_HOBr) = 0.8_dp
+        RTOL(ind_I2O4) = 0.8_dp
+        RTOL(ind_IONO) = 0.8_dp
+        RTOL(ind_BrNO2) = 0.8_dp
+        RTOL(ind_CO2) = 0.8_dp
+        RTOL(ind_OH) = 0.8_dp
+        RTOL(ind_OClO) = 0.8_dp
+        RTOL(ind_I) = 0.8_dp
+        RTOL(ind_NO3) = 0.8_dp
+        RTOL(ind_Cl) = 0.8_dp
+        RTOL(ind_NO) = 0.8_dp
+        RTOL(ind_Br2) = 0.8_dp
+        RTOL(ind_HO2) = 0.8_dp
+
+      ELSEIF (RELAX_RTOL .eq. 9) THEN
+        ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
+        RTOL(ind_INO) = 0.8_dp
+        RTOL(ind_I2) = 0.8_dp
+        RTOL(ind_OIO) = 0.8_dp
+        RTOL(ind_I2O2) = 0.8_dp
+        RTOL(ind_I2O4) = 0.8_dp
+        RTOL(ind_Br) = 0.8_dp
+        RTOL(ind_I2O3) = 0.8_dp
+        RTOL(ind_IONO) = 0.8_dp
+        RTOL(ind_I) = 0.8_dp
+        ! RTOL(ind_OH) = 0.8_dp
+        RTOL(ind_CO2) = 0.8_dp
+        RTOL(ind_OClO) = 0.8_dp
+        RTOL(ind_Cl) = 0.8_dp
+        RTOL(ind_BrNO2) = 0.8_dp
+        RTOL(ind_H) = 0.8_dp
+        RTOL(ind_NO3) = 0.8_dp
+        ! RTOL(ind_NO) = 0.8_dp
+        RTOL(ind_HOBr) = 0.8_dp
+        RTOL(ind_IO) = 0.8_dp
+        ! RTOL(ind_HO2) = 0.8_dp
+        ! Another 10
+        RTOL(ind_Br2) = 0.8
+        RTOL(ind_BrSALA) = 0.8
+        RTOL(ind_ICl) = 0.8
+        RTOL(ind_MO2) = 0.8
+        RTOL(ind_BrO) = 0.8
+        RTOL(ind_ClOO) = 0.8
+        RTOL(ind_HI) = 0.8
+        RTOL(ind_Cl2O2) = 0.8
+        RTOL(ind_R4N1) = 0.8
+        RTOL(ind_IONO2) = 0.8
+      ELSEIF (RELAX_RTOL .eq. 10) THEN
+        ! top species from SumScaledErrorRanked of all twilight cases with 10 or more timesteps
+        RTOL(ind_INO) = 0.8
+        RTOL(ind_Br) = 0.8
+        RTOL(ind_IONO) = 0.8
+        RTOL(ind_I) = 0.8
+        RTOL(ind_OIO) = 0.8
+        ! !!RTOL(ind_OH) = 0.8
+        RTOL(ind_CO2) = 0.8
+        RTOL(ind_IO) = 0.8
+        RTOL(ind_I2) = 0.8
+        RTOL(ind_Cl) = 0.8
+        RTOL(ind_NO3) = 0.8
+        RTOL(ind_I2O2) = 0.8
+        ! !!RTOL(ind_NO) = 0.8
+        RTOL(ind_BrO) = 0.8
+        RTOL(ind_OClO) = 0.8
+        ! !!RTOL(ind_HO2) = 0.8
+        RTOL(ind_ClO) = 0.8
+        RTOL(ind_BrNO2) = 0.8
+        RTOL(ind_ClOO) = 0.8
+        RTOL(ind_I2O3) = 0.8
+        ! Another 10
+        RTOL(ind_HNO4) = 0.8
+        RTOL(ind_N2O5) = 0.8
+        RTOL(ind_IONO2) = 0.8
+        RTOL(ind_R4N1) = 0.8
+        RTOL(ind_MCO3) = 0.8
+        RTOL(ind_MO2) = 0.8
+        RTOL(ind_RCO3) = 0.8
+        RTOL(ind_AROMRO2) = 0.8
+        RTOL(ind_BENZO) = 0.8
+        RTOL(ind_Br2) = 0.8
+        
+        ! Missing species:
+        ! "I2O4"
+        ! "H"
+        ! "HOBr"
+        ! "BrSALA"
+        ! "ICl"
+        ! "HI"
+        ! "Cl2O2"
+        ! RTOL(ind_I2O4) = 0.8
+        ! RTOL(ind_H) = 0.8
+        ! RTOL(ind_HOBr) = 0.8
+        ! RTOL(ind_BrSALA) = 0.8
+        ! RTOL(ind_ICl) = 0.8
+        ! RTOL(ind_HI) = 0.8
+        ! RTOL(ind_Cl2O2) = 0.8
+      ELSE IF (RELAX_RTOL .eq. 11) THEN
+          ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
+         write(*,*) "0.2 RTOL"
+          RTOL(ind_INO) = 0.2_dp
+          RTOL(ind_I2) = 0.2_dp
+          RTOL(ind_OIO) = 0.2_dp
+          RTOL(ind_I2O2) = 0.2_dp
+          RTOL(ind_I2O4) = 0.2_dp
+          RTOL(ind_Br) = 0.2_dp
+          RTOL(ind_I2O3) = 0.2_dp
+          RTOL(ind_IONO) = 0.2_dp
+          RTOL(ind_I) = 0.2_dp
+          ! RTOL(ind_OH) = 0.8_dp
+          RTOL(ind_CO2) = 0.2_dp
+          RTOL(ind_OClO) = 0.2_dp
+          RTOL(ind_Cl) = 0.2_dp
+          RTOL(ind_BrNO2) = 0.2_dp
+          RTOL(ind_H) = 0.2_dp
+          RTOL(ind_NO3) = 0.2_dp
+          ! RTOL(ind_NO) = 0.8_dp
+          RTOL(ind_HOBr) = 0.2_dp
+          RTOL(ind_IO) = 0.2_dp
+          ! RTOL(ind_HO2) = 0.8_dp
+          ! Another 10
+          RTOL(ind_Br2) = 0.2
+          RTOL(ind_BrSALA) = 0.2
+          RTOL(ind_ICl) = 0.2
+          RTOL(ind_MO2) = 0.2
+          RTOL(ind_BrO) = 0.2
+          RTOL(ind_ClOO) = 0.2
+          RTOL(ind_HI) = 0.2
+          RTOL(ind_Cl2O2) = 0.2
+          RTOL(ind_R4N1) = 0.2
+          RTOL(ind_IONO2) = 0.2
+        ELSE IF (RELAX_RTOL .eq. 12) THEN
+          ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
+         write(*,*) "running with 0.02 RTOL"
+         RTOL(ind_INO) = 0.02_dp
+         RTOL(ind_I2) = 0.02_dp
+         RTOL(ind_OIO) = 0.02_dp
+         RTOL(ind_I2O2) = 0.02_dp
+         RTOL(ind_I2O4) = 0.02_dp
+         RTOL(ind_Br) = 0.02_dp
+         RTOL(ind_I2O3) = 0.02_dp
+         RTOL(ind_IONO) = 0.02_dp
+         RTOL(ind_I) = 0.02_dp
+         ! RTOL(ind_OH) = 0.02_dp
+         RTOL(ind_CO2) = 0.02_dp
+         RTOL(ind_OClO) = 0.02_dp
+         RTOL(ind_Cl) = 0.02_dp
+         RTOL(ind_BrNO2) = 0.02_dp
+         RTOL(ind_H) = 0.02_dp
+         RTOL(ind_NO3) = 0.02_dp
+         ! RTOL(ind_NO) = 0.02_dp
+         RTOL(ind_HOBr) = 0.02_dp
+         RTOL(ind_IO) = 0.02_dp
+         ! RTOL(ind_HO2) = 0.02_dp
+         ! Another 10
+         RTOL(ind_Br2) = 0.02_dp
+         RTOL(ind_BrSALA) = 0.02_dp
+         RTOL(ind_ICl) = 0.02_dp
+         RTOL(ind_MO2) = 0.02_dp
+         RTOL(ind_BrO) = 0.02_dp
+         RTOL(ind_ClOO) = 0.02_dp
+         RTOL(ind_HI) = 0.02_dp
+         RTOL(ind_Cl2O2) = 0.02_dp
+         RTOL(ind_R4N1) = 0.02_dp
+         RTOL(ind_IONO2) = 0.02_dp
+      END IF
     ! write(*,*) "ATOL(ind_OH) = ", ATOL(ind_OH)
       
 
@@ -248,7 +690,7 @@ CONTAINS
     TOUT = T + 900._dp
     TEMP = 298.
     
-    if (.not. init) write(*,*) 'Running the full mechanism'
+    ! if (.not. init) write(*,*) 'Running the full mechanism'
     
     full_avg     = 0.
     full_sumtime = 0.
@@ -258,12 +700,12 @@ CONTAINS
     if (.not. reinit) C(1:NSPEC) = Cinit(1:NSPEC)
     ! C(1:NSPEC) = Cinit(1:NSPEC)
     ! --- INTEGRATION & TIMING LOOP
-    open(998,FILE='data.csv')
-    write(998,'(a)',advance='NO') 'NStp, Err, H, Fac, '//trim(spc_names(1))
-    do i=2,NVAR
-       write(998,'(a)',advance='NO') ','//trim(spc_names(i))
-    end do
-    write(998,'(a)') ''
+    ! open(998,FILE='data.csv')
+    ! write(998,'(a)',advance='NO') 'NStp, Err, H, Fac, '//trim(spc_names(1))
+    ! do i=2,NVAR
+    !    write(998,'(a)',advance='NO') ','//trim(spc_names(i))
+    ! end do
+    ! write(998,'(a)') ''
 
     DO I=1,NAVG
        call cpu_time(start)
@@ -286,11 +728,12 @@ CONTAINS
     ENDDO
 !    write(*,*) 'full ISTATUS: ', ISTATUS(1:5)
     full_avg = full_sumtime/real(NAVG)
-    if (.not. init) write(*,*) "Average integration time: ", full_avg
-    if (.not. init) write(*,'(a,i5)') " Number of iterations: ", NAVG
+    ! if (.not. init) write(*,*) "Average integration time: ", full_avg
+    ! if fileTotSteps is not equal to ISTATUS(3), print a warning
+
     write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
 
-    close(998)
+    ! close(998)
 
     return
  end subroutine fullmech
@@ -310,7 +753,7 @@ CONTAINS
     ICNTRL    = 0
     ICNTRL(1) = 1
     ICNTRL(2) = 0	
-    ICNTRL(3) = 4
+    ICNTRL(3) = 4                 ! Integrator: Rodas3
     ICNTRL(7) = 1
     
     ICNTRL(8) = 1

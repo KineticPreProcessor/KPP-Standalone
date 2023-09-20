@@ -615,7 +615,7 @@ CONTAINS !  SUBROUTINES internal to Rosenbrock
    REAL(kind=dp) :: Jac0(LU_NONZERO), Ghimj(LU_NONZERO)
 #endif
    REAL(kind=dp) :: H, Hnew, HC, HG, Fac, Tau
-   REAL(kind=dp) :: Err, Yerr(N), SumYerrNorm(N)
+   REAL(kind=dp) :: Err, Yerr(N), ScaledErr(N), SumScaledErr(N)
    INTEGER :: Pivot(N), Direction, ioffset, j, istage
    LOGICAL :: RejectLastH, RejectMoreH, Singular
 !~~~>  Local parameters
@@ -628,6 +628,9 @@ CONTAINS !  SUBROUTINES internal to Rosenbrock
 
 
 !~~~>  Initial preparations
+   ! Initialize SumScaledErr to zero
+   SumScaledErr(1:N) = ZERO
+
    DO_SLV  = .true.
    DO_FUN  = .true.
    DO_JVS  = .true.
@@ -738,27 +741,24 @@ Stage: DO istage = 1, ros_S
         CALL WAXPY(N,ros_E(j),K(N*(j-1)+1),1,Yerr,1)
    END DO
    Err = ros_ErrorNorm ( Y, Ynew, Yerr, AbsTol, RelTol, VectorTol )
+   call ros_ScaledSpcError( Y, Ynew, Yerr, ScaledErr, AbsTol, RelTol, VectorTol )
 
 !~~~> New step size is bounded by FacMin <= Hnew/H <= FacMax
    Fac  = MIN(FacMax,MAX(FacMin,FacSafe/Err**(ONE/ros_ELO)))
    Hnew = H*Fac
 
-
-   write(998, '(i6,a,e17.4,a,e17.4,a,e17.4,a)',ADVANCE='NO') ISTATUS(Nstp), ', ',Err,', ',H,', ',Fac,', '
-   write(998, '(e17.4)', ADVANCE='NO') Yerr(1)/(AbsTol(1)+RelTol(1)*MAX(ABS(Y(1)),ABS(Ynew(1))))
-   SumYerrNorm(1) = SumYerrNorm(1) + ( Yerr(1)/(AbsTol(i)+RelTol(1)*MAX(ABS(Y(i)),ABS(Ynew(1)))) )**2
+   open(999,FILE='ScaledErr.csv')
+   write(999, '(i6,a,e17.4,a)',ADVANCE='NO') ISTATUS(Nstp), ', ',Err,', '
+   write(999, '(e17.4)', ADVANCE='NO') ScaledErr(1)
+   SumScaledErr(1) = SumScaledErr(1) + ScaledErr(1)
    DO i=2,N
-      SumYerrNorm(i) = SumYerrNorm(i) + ( Yerr(i)/(AbsTol(i)+RelTol(i)*MAX(ABS(Y(i)),ABS(Ynew(i)))) )**2
-      write(998, '(a,e17.4)', ADVANCE='NO') ',',Yerr(i)/(AbsTol(i)+RelTol(i)*MAX(ABS(Y(i)),ABS(Ynew(i))))
+      SumScaledErr(i) = SumScaledErr(i) + ScaledErr(i)
+      write(999, '(a,e17.4)', ADVANCE='NO') ',',ScaledErr(i)
    ENDDO
-   write(998,'(a)') ''
-!~~~>  Write SumYerrNorm to double check
-   open(999,FILE='SumYerrNorm.csv')
-   write(999, '(e17.4)', ADVANCE='NO') SumYerrNorm(1)
-   do i = 2,N
-      write(999, '(a,e17.4)', ADVANCE='NO') ',',SumYerrNorm(i)
-   enddo
+   write(999,'(a)') ''
    close(999)
+
+
 
 !~~~>  Check the error magnitude and adjust step size
    ISTATUS(Nstp) = ISTATUS(Nstp) + 1
@@ -796,7 +796,12 @@ Stage: DO istage = 1, ros_S
    END DO UntilAccepted
 
    END DO TimeLoop
-
+   write(998, '(i6,a,e14.4,a,e14.4,a,e14.4,a)', ADVANCE='NO') ISTATUS(Nstp), ', ', Err, ', '
+   write(998, '(e14.4)', ADVANCE='NO') SumScaledErr(1)
+   do i = 2, N
+      write(998, '(a,e14.4)', ADVANCE='NO') ',', SumScaledErr(i)
+   end do
+   write(998, '(a)') ''
 !~~~> Succesful exit
    IERR = 1  !~~~> The integration was successful
 
@@ -1760,6 +1765,35 @@ Stage: DO istage = 1, ros_S
    ros_ErrorNorm = MAX(Err,1.0d-10)
 
   END FUNCTION ros_ErrorNorm
+  
+
+  !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SUBROUTINE ros_ScaledSpcError ( Y, Ynew, Yerr, ScaledErr, AbsTol, RelTol, VectorTol)
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   !~~~> Computes the "scaled error" for each component
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      IMPLICIT NONE
+   
+   ! Input arguments
+      REAL(kind=dp), INTENT(IN) :: Y(N), Ynew(N), &
+             Yerr(N), AbsTol(N), RelTol(N)
+      LOGICAL, INTENT(IN) ::  VectorTol
+   ! Output argument
+      REAL(kind=dp), INTENT(OUT) :: ScaledErr(N)
+   ! Local variables
+      REAL(kind=dp) :: Scale, Ymax
+      INTEGER  :: i
+
+      DO i=1,N
+        Ymax = MAX(ABS(Y(i)),ABS(Ynew(i)))
+        IF (VectorTol) THEN
+          Scale = AbsTol(i)+RelTol(i)*Ymax
+        ELSE
+          Scale = AbsTol(1)+RelTol(1)*Ymax
+        END IF
+        ScaledErr(i) = ABS(Yerr(i)/Scale)
+      END DO
+      END SUBROUTINE ros_ScaledSpcError
 
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

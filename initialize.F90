@@ -6,7 +6,7 @@ contains
   ! Conditions taken from GEOS-Chem, 
   ! git branch 'staging/autoreducekpp
   ! commit 3f5ab4e91c4fc885377629d9b9629b6dc53edee6
-subroutine read_input(file_name, R, C, Hstart)
+subroutine read_input(file_name, R, C, Hstart, cosSZA, level, fileTotSteps)
   USE gckpp_Parameters
 
   IMPLICIT NONE
@@ -14,11 +14,15 @@ subroutine read_input(file_name, R, C, Hstart)
   real(dp), intent(out) :: C(NSPEC)
   real(dp), intent(out) :: R(NREACT)
   real(dp), intent(out) :: Hstart
+  real(dp), intent(out) :: cosSZA
+  ! define variables to get the number of internal steps
+  real :: value
+  integer :: fileTotSteps
+  integer :: level
  
   character(len=*), intent(in) :: file_name
   integer :: i, j, ierr, line_num, NHEADER, idx
   character(200) :: line
-  real :: value
   logical :: existbool
 
   ! Declare variables for file I/O
@@ -47,21 +51,49 @@ subroutine read_input(file_name, R, C, Hstart)
       print *, "Error reading line", line_num 
       exit
      end if
+     ! Get level
+      if (line_num == 5 ) then
+        idx = index(line, ':') + 1
+        read(line(idx:), *) level
+      endif
+     ! Get cosSZA
+     if (line_num == 11 ) then
+      idx = index(line, ':') + 1
+      read(line(idx:), *) cosSZA
+     end if
+     ! get Hstart
      if (line_num == 13 ) then
       idx = index(line, ':') + 1
       read(line(idx:), *) Hstart
      end if
+
      if (line_num >= NHEADER+1 .and. line_num <= NSPEC+NHEADER) then
         idx = index(line, '=') + 1
         read(line(idx:), *) C(line_num-NHEADER)
-        write(*,*) "C( ",line_num-NHEADER,  ") = ", C(line_num-NHEADER)
+        ! write(*,*) "C( ",line_num-NHEADER,  ") = ", C(line_num-NHEADER)
      else if (line_num > NSPEC+NHEADER) then
       idx = index(line, '=') + 1
       read(line(idx:), *) R(line_num-NHEADER-NSPEC)
-      write(*,*) "R( ", line_num-NHEADER-NSPEC, ") =", R(line_num-NHEADER-NSPEC)
+      ! write(*,*) "R( ", line_num-NHEADER-NSPEC, ") =", R(line_num-NHEADER-NSPEC)
      end if
      line_num = line_num + 1
   end do
+
+  ! read until the end of the file to get the number of internal steps
+  fileTotSteps = 0
+  do while (.true.)
+     read(file_unit, '(A)', iostat=ierr) line
+     if (ierr /= 0)  then
+      exit
+     end if
+  end do
+  ! read the value after the colon into fileTotSteps
+  idx = index(line, ':') + 1
+  ! convert the string to a float and then an integer
+  read(line(idx:), *) value
+  fileTotSteps = int(value)
+  ! write(*,*) "fileTotSteps = ", fileTotSteps
+
   ! Close the file
   close(file_unit)
 end subroutine read_input
