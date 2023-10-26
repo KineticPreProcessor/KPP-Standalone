@@ -201,7 +201,9 @@ program main
         C = Cinit
         write(*,*) 'Running with customized tolerances'
         write(998,'(a)',advance='NO') trim(filename)//',1,'
-        call fullmech(.false.,12,RTOL_VALUE=0.5e-2_dp) 
+        ! call fullmech(.false.,12,RTOL_VALUE=0.5e-2_dp) 
+        call fullmech(.false.,0,RTOL_VALUE=1e-1_dp) 
+
         Credux = C
         write(888,'(a,i0)',advance='NO') trim(filename)//',1,',ISTATUS(3)
         do i=1,NVAR
