@@ -45,7 +45,7 @@ program main
   LOGICAL              :: STOICMAT
 
   ! Variable ATOL?
-  INTEGER              :: RELAX_RTOL
+  INTEGER              :: RELAX_RTOL_CASE
   
   INTEGER              :: SCENARIO
 
@@ -63,9 +63,9 @@ program main
   NAVG         = 1
   AR_threshold = 1e4 ! Threshold value for AR
   SCENARIO     = 1
-  RELAX_RTOL = 0 ! if 0, no P/L species ! 1 tight tolerances for P/L species ! 2 20 species ATOL to concentration ! 3 higher RTOL across the board
+  RELAX_RTOL_CASE = 0 ! if 0, no P/L species ! 1 tight tolerances for P/L species ! 2 20 species ATOL to concentration ! 3 higher RTOL across the board
   STOICMAT     = .false. ! Print biadjacency matrix of species reaction graph, spc and rxn list
-  Experiment = 1 ! 1: Run for one initial condition 2: Get species-resolved errors for expensive twilight cases ! 3: Compare two runs with different tolerances
+  Experiment = 3 ! 1: Run for one initial condition 2: Get species-resolved errors for expensive twilight cases ! 3: Compare two runs with different tolerances
 
   write(*,*) ' '
   write(*,*) 'The KPP boxmodel'
@@ -108,7 +108,7 @@ program main
     read(unit, '(A)', iostat=iostat) filename
     call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
     ! Run the full mechanism
-    call fullmech(.false.,1)
+    call fullmech(.false.,1,RTOL_VALUE=0.5e-2_dp)
     ! Write the concentrations to file
     open(996,FILE ='final_concentrations_exp1.csv')
     DO i=1,NSPEC
@@ -144,7 +144,7 @@ program main
       ! Run the full mechanism
       write(998,'(a)',advance='NO') trim(filename)//','
       write(998,'(e12.4,a,i2,a)',advance='NO') cosSZA,',',level,','
-      call fullmech(.false.,RELAX_RTOL)
+      call fullmech(.false.,RELAX_RTOL_CASE,RTOL_VALUE=0.5e-2_dp)
     enddo
     close(998)
   ENDIF
@@ -182,7 +182,7 @@ program main
         ! Run the full mechanism
         write(*,*) 'Running the full mechanism'
         write(998,'(a)',advance='NO') trim(filename)//',0,'
-        call fullmech(.false.,0) 
+        call fullmech(.false.,0,RTOL_VALUE=0.5e-2_dp) 
         Cfull = C
         ! Write the concentrations to 888 Experiment2_Conc.csv
         write(888,'(a,i0)',advance='NO') trim(filename)//',0,',ISTATUS(3)
@@ -197,11 +197,11 @@ program main
           write(*,*) "fileTotSteps: ", fileTotSteps
            write(*,*)"ISTATUS(3):   ", ISTATUS(3)
         end if
-        ! Run the compacted mechanism
+        ! Run the mechanism with relaxed tolerances
         C = Cinit
         write(*,*) 'Running with customized tolerances'
         write(998,'(a)',advance='NO') trim(filename)//',1,'
-        call fullmech(.false.,12) 
+        call fullmech(.false.,12,RTOL_VALUE=0.5e-2_dp) 
         Credux = C
         write(888,'(a,i0)',advance='NO') trim(filename)//',1,',ISTATUS(3)
         do i=1,NVAR
@@ -241,8 +241,8 @@ program main
   ! -------------------------------------------------------------------------- !
   ! 1. Run the full mechanism
   ! initialization run. Priming memory. Otherwise, first pass is slow
-  ! call fullmech(.true.,RELAX_RTOL) 
-  ! call fullmech(.false.,RELAX_RTOL) 
+  ! call fullmech(.true.,RELAX_RTOL_CASE, RTOL_VALUE=0.5e-2_dp) 
+  ! call fullmech(.false.,RELAX_RTOL_CASE,  RTOL_VALUE=0.5e-2_dp) 
 
 
 
@@ -287,7 +287,7 @@ program main
 
 CONTAINS
 
-  subroutine fullmech( init , RELAX_RTOL)
+  subroutine fullmech( init , RELAX_RTOL_CASE, RTOL_VALUE)
     USE GCKPP_INTEGRATOR
     USE GCKPP_RATES
     USE GCKPP_INITIALIZE
@@ -296,7 +296,8 @@ CONTAINS
     IMPLICIT NONE
 
     LOGICAL :: init
-    INTEGER :: RELAX_RTOL
+    INTEGER :: RELAX_RTOL_CASE
+    REAL(dp)    :: RTOL_VALUE
 
     ! Set OPTIONS
     IERR      = 0                 ! Success or failure flag
@@ -313,7 +314,7 @@ CONTAINS
     
     ! Tolerances
     ATOL      = 1e-2_dp
-    RTOL      = 0.5e-2_dp
+    RTOL      = RTOL_VALUE ! default in GEOS-CF 2.0 is 0.5e-2_dp
 
     ! P/L Tolerances very high
     ATOL(ind_LBRO2H)    = 1e25_dp
@@ -334,11 +335,11 @@ CONTAINS
     ATOL(ind_POx)       = 1e25_dp 
     ATOL(ind_PSO4)      = 1e25_dp
 
-    IF (RELAX_RTOL .eq. 1 ) THEN
+    IF (RELAX_RTOL_CASE .eq. 1 ) THEN
       write(*,*) "Tight tolerance for all species also prod/loss species"
       ATOL      = 1e-2_dp
 
-    ELSEIF (RELAX_RTOL .eq. 2) THEN
+    ELSEIF (RELAX_RTOL_CASE .eq. 2) THEN
       ! Old set of stiff species, from a single grid cell in the Indian Ocean
       RTOL(ind_I2O2) = 8e-1_dp
       RTOL(ind_I2O4) = 8e-1_dp
@@ -362,7 +363,7 @@ CONTAINS
       RTOL(ind_OClO) = 8e-1_dp
 
 
-    ELSEIF (RELAX_RTOL .eq. 3) THEN
+    ELSEIF (RELAX_RTOL_CASE .eq. 3) THEN
       RTOL(ind_BrO) = 0.8_dp
       RTOL(ind_RCHO) = 0.8_dp
       RTOL(ind_B3O2) = 0.8_dp
@@ -386,8 +387,8 @@ CONTAINS
       ! RTOL(ind_HNO3) = 0.8_dp
       RTOL(ind_HAC) = 0.8_dp
 
-    ELSE IF (RELAX_RTOL .eq. 4) THEN
-      RTOL(ind_BrO) = 0.8_dp
+    ELSE IF (RELAX_RTOL_CASE .eq. 4) THEN
+    RTOL(ind_BrO) = 0.8_dp
     RTOL(ind_RCHO) = 0.8_dp
     RTOL(ind_B3O2) = 0.8_dp
     RTOL(ind_ATO2) = 0.8_dp
@@ -419,7 +420,7 @@ CONTAINS
     RTOL(ind_ClNO3) = 0.8_dp
     RTOL(ind_O1D) = 0.8_dp
 
-    ELSEIF (RELAX_RTOL .eq. 5) THEN
+    ELSEIF (RELAX_RTOL_CASE .eq. 5) THEN
       RTOL(ind_BrO) = 0.8_dp
     RTOL(ind_RCHO) = 0.8_dp
     RTOL(ind_B3O2) = 0.8_dp
@@ -463,7 +464,7 @@ CONTAINS
     RTOL(ind_IDN) = 0.8_dp
     RTOL(ind_OH) = 0.8_dp
 
-    ELSEIF (RELAX_RTOL .eq. 6) THEN
+    ELSEIF (RELAX_RTOL_CASE .eq. 6) THEN
       ! top 20 species from all summer cases with 15 or more timesteps
       RTOL(ind_SALACL) = 0.8_dp
       RTOL(ind_OH) = 0.8_dp
@@ -485,7 +486,7 @@ CONTAINS
       RTOL(ind_INO2D) = 0.8_dp
       RTOL(ind_R4O2) = 0.8_dp
       RTOL(ind_CH2O) = 0.8_dp
-      ELSEIF (RELAX_RTOL .eq. 7) THEN
+      ELSEIF (RELAX_RTOL_CASE .eq. 7) THEN
         ! top 20 species from SumScaledErrorNorm of all summer cases with 10 or more timesteps
         RTOL(ind_INO) = 0.8_dp
         RTOL(ind_OIO) = 0.8_dp
@@ -507,7 +508,7 @@ CONTAINS
         RTOL(ind_IO) = 0.8_dp
         RTOL(ind_HOBr) = 0.8_dp
         RTOL(ind_HO2) = 0.8_dp
-      ELSEIF (RELAX_RTOL .eq. 8) THEN
+      ELSEIF (RELAX_RTOL_CASE .eq. 8) THEN
         ! top 20 species from SumScaledErrorNorm of all summer cases with 8 or more timesteps
         RTOL(ind_INO) = 0.8_dp
         RTOL(ind_I2) = 0.8_dp
@@ -530,7 +531,7 @@ CONTAINS
         RTOL(ind_Br2) = 0.8_dp
         RTOL(ind_HO2) = 0.8_dp
 
-      ELSEIF (RELAX_RTOL .eq. 9) THEN
+      ELSEIF (RELAX_RTOL_CASE .eq. 9) THEN
         ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
         RTOL(ind_INO) = 0.8_dp
         RTOL(ind_I2) = 0.8_dp
@@ -563,7 +564,7 @@ CONTAINS
         RTOL(ind_Cl2O2) = 0.8
         RTOL(ind_R4N1) = 0.8
         RTOL(ind_IONO2) = 0.8
-      ELSEIF (RELAX_RTOL .eq. 10) THEN
+      ELSEIF (RELAX_RTOL_CASE .eq. 10) THEN
         ! top species from SumScaledErrorRanked of all twilight cases with 10 or more timesteps
         RTOL(ind_INO) = 0.8
         RTOL(ind_Br) = 0.8
@@ -612,7 +613,7 @@ CONTAINS
         ! RTOL(ind_ICl) = 0.8
         ! RTOL(ind_HI) = 0.8
         ! RTOL(ind_Cl2O2) = 0.8
-      ELSE IF (RELAX_RTOL .eq. 11) THEN
+      ELSE IF (RELAX_RTOL_CASE .eq. 11) THEN
           ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
          write(*,*) "0.2 RTOL"
           RTOL(ind_INO) = 0.2_dp
@@ -646,7 +647,7 @@ CONTAINS
           RTOL(ind_Cl2O2) = 0.2
           RTOL(ind_R4N1) = 0.2
           RTOL(ind_IONO2) = 0.2
-        ELSE IF (RELAX_RTOL .eq. 12) THEN
+        ELSE IF (RELAX_RTOL_CASE .eq. 12) THEN
           ! top species from SumScaledErrorNorm of all twilight cases with 10 or more timesteps
          write(*,*) "running with 0.02 RTOL"
          RTOL(ind_INO) = 0.02_dp
@@ -680,6 +681,7 @@ CONTAINS
          RTOL(ind_Cl2O2) = 0.02_dp
          RTOL(ind_R4N1) = 0.02_dp
          RTOL(ind_IONO2) = 0.02_dp
+
       END IF
     ! write(*,*) "ATOL(ind_OH) = ", ATOL(ind_OH)
       
@@ -828,6 +830,7 @@ CONTAINS
     
     return
   end subroutine compactedmech
+
 
   subroutine showoutput()
     IMPLICIT none

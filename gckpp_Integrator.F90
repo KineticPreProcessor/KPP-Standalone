@@ -621,6 +621,8 @@ CONTAINS !  SUBROUTINES internal to Rosenbrock
 !~~~>  Local parameters
    REAL(kind=dp), PARAMETER :: ZERO = 0.0_dp, ONE  = 1.0_dp
    REAL(kind=dp), PARAMETER :: DeltaMin = 1.0E-5_dp
+   logical :: write_errors  ! write errors into a file with unit 998
+
 !~~~>  Locally called functions
 !    REAL(kind=dp) WLAMCH
 !    EXTERNAL WLAMCH
@@ -796,12 +798,18 @@ Stage: DO istage = 1, ros_S
    END DO UntilAccepted
 
    END DO TimeLoop
-   write(998, '(i6,a,e14.4,a,e14.4,a,e14.4,a)', ADVANCE='NO') ISTATUS(Nstp), ', ', Err, ', '
-   write(998, '(e14.4)', ADVANCE='NO') SumScaledErr(1)
-   do i = 2, N
-      write(998, '(a,e14.4)', ADVANCE='NO') ',', SumScaledErr(i)
-   end do
-   write(998, '(a)') ''
+   ! inquire if unit 998 already connected to a file that writes errors
+   inquire(unit=998,opened=write_errors)
+   ! if it does, do something within a conditional
+   IF (write_errors) THEN
+      write(998, '(i6,a,e14.4,a,e14.4,a,e14.4,a)', ADVANCE='NO') ISTATUS(Nstp), ', ', Err, ', '
+      write(998, '(e14.4)', ADVANCE='NO') SumScaledErr(1)
+      do i = 2, N
+         write(998, '(a,e14.4)', ADVANCE='NO') ',', SumScaledErr(i)
+      end do
+      write(998, '(a)') ''
+   END IF
+
 !~~~> Succesful exit
    IERR = 1  !~~~> The integration was successful
 
