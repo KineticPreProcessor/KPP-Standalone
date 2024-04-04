@@ -51,7 +51,7 @@ program main
   ! Experiment 1: Run for one set of initial conditions
   !               and print end concentrations to file 
 
-   filename = 'samples/AmazonTwilight_L56_20181001_0945.txt'
+   filename = 'samples/BorneoTwilight_L23_20181001_1015.txt'
    ! Read the input
    read(unit, '(A)', iostat=iostat) filename
    call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)

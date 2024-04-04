@@ -101,7 +101,7 @@ program main
    do i=1,NSPEC
       write(998,'(a)',advance='NO') ','//trim(spc_names(i))//'_t'
    end do
-   write(998,'(a)',advance='NO') ',e_O3'
+   write(998,'(a)',advance='NO') ',e_O3,e_NO,e_NO2'
 !   do i=1,NSPEC
 !      write(998,'(a)',advance='NO') ',e_'//trim(spc_names(i))
 !   end do
@@ -124,7 +124,7 @@ program main
     open(newunit=unit, file='filelist_twilight.txt', status='old', action='read')
     read(unit, '(I10)', iostat=iostat) NFILES
     write(*,*) 'NFILES: ', NFILES
-    DO II = 1,100!NFILES
+    DO II = 1,NFILES
        ! Read the input
        read(unit, '(A)', iostat=iostat) filename
        call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
