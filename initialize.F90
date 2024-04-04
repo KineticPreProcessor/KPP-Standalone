@@ -32,7 +32,7 @@ subroutine read_input(file_name, R, C, Hstart, cosSZA, level, fileTotSteps)
   file_unit = 999
   inquire(file=file_name, exist=existbool)
   if (existbool .neqv. .TRUE.) then
-     print *, "Error: input file does not exist"
+     print *, "Error: input file does not exist: ", trim(file_name)
      stop
   end if
   open(unit=file_unit, file=file_name, iostat=ierr)

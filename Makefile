@@ -80,14 +80,14 @@ MODOBJ   = gckpp_Model.o
 INISRC   = gckpp_Initialize.F90
 INIOBJ 	 = gckpp_Initialize.o
 
-SFCSRC   = initialize.F90
-SFCOBJ   = initialize.o
+SFCSRC   = initialize.F90 setquants.F90
+SFCOBJ   = initialize.o setquants.o
 
-STOICHSRC = gckpp_StoichiomSP.F90 
-STOICHOBJ = gckpp_StoichiomSP.o 
+STOICHSRC = gckpp_StoichiomSP.F90 gckpp_Stoichiom.F90
+STOICHOBJ = gckpp_StoichiomSP.o gckpp_Stoichiom.o
 
-MAINSRC = compressor.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
-MAINOBJ = compressor.o     gckpp_Initialize.o     gckpp_Integrator.o
+MAINSRC = boxmodel.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
+MAINOBJ = boxmodel.o     gckpp_Initialize.o     gckpp_Integrator.o
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -103,7 +103,8 @@ ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
 all:    exe
 
 exe:	$(ALLOBJ) $(MAINOBJ) 
-	$(FC) $(FOPT) compressor.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o gckpp.exe
+	$(FC) $(FOPT) boxmodel.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o gckpp.exe
+	$(FC) $(FOPT) rtoltest.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o rtoltest.exe
 
 stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
 	$(FC) $(FOPT) $(ALLOBJ) $(STOCHOBJ) $(MAINOBJ) $(LIBS) \
@@ -115,8 +116,8 @@ mex:    $(ALLOBJ)
 	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Hessian.F90 $(ALLOBJ)
 
 clean:
-	rm -f *.o *.mod compressor.o \
-	gckpp*.dat gckpp.exe gckpp*.mexglx \
+	rm -f *.o *.mod boxmodel.o rtoltest.o\
+	gckpp*.dat gckpp.exe rtoltest.exe gckpp*.mexglx \
 	gckpp.map
 
 distclean:
@@ -184,7 +185,13 @@ gckpp_Model.o: gckpp_Model.F90  $(ALLOBJ) gckpp_Integrator.o
 gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-compressor.o: compressor.F90 $(ALLOBJ)
+boxmodel.o: boxmodel.F90 $(ALLOBJ)
+	$(FC) $(FOPT) -c $<
+
+rtoltest.o: rtoltest.F90 $(ALLOBJ)
+	$(FC) $(FOPT) -c $<
+
+setquants.o: setquants.F90 gckpp_Model.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
 initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)

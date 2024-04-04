@@ -15,7 +15,7 @@
 !        H. Lin,      Harvard University, Cambridge, MA, USA
 !        R. Yantosca, Harvard University, Cambridge, MA, USA
 ! 
-! File                 : gckpp_LinearAlgebra.f90
+! File                 : gckpp_LinearAlgebra.F90
 ! Equation file        : gckpp.kpp
 ! Output root filename : gckpp
 ! 
@@ -3153,7 +3153,7 @@ END SUBROUTINE KppSolveTR
       INTEGER  :: i,incX,incY,M,MP1,N
       REAL(kind=dp) :: X(N),Y(N),Alpha
       REAL(kind=dp), PARAMETER :: ZERO = 0.0_dp
-      
+
       IF (Alpha .EQ. ZERO) RETURN
       IF (N .LE. 0) RETURN
 

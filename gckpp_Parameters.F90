@@ -15,7 +15,7 @@
 !        H. Lin,      Harvard University, Cambridge, MA, USA
 !        R. Yantosca, Harvard University, Cambridge, MA, USA
 ! 
-! File                 : gckpp_Parameters.f90
+! File                 : gckpp_Parameters.F90
 ! Equation file        : gckpp.kpp
 ! Output root filename : gckpp
 ! 
@@ -34,8 +34,8 @@ MODULE gckpp_Parameters
   INTEGER, PARAMETER :: NSPEC = 291 
 ! NVAR - Number of Variable species
   INTEGER, PARAMETER :: NVAR = 287 
-! NFLUX - Number of Reaction Flux species
-  INTEGER, PARAMETER :: NFLUX = 1 
+! NPL - Number of Prod/Loss species
+  INTEGER, PARAMETER :: NPL = 8 
 ! NFAM - Number of Prod/Loss Families
   INTEGER, PARAMETER :: NFAM = 7 
 ! NVARACT - Number of Active species

@@ -15,7 +15,7 @@
 !        H. Lin,      Harvard University, Cambridge, MA, USA
 !        R. Yantosca, Harvard University, Cambridge, MA, USA
 ! 
-! File                 : gckpp_Jacobian.f90
+! File                 : gckpp_Jacobian.F90
 ! Equation file        : gckpp.kpp
 ! Output root filename : gckpp
 ! 

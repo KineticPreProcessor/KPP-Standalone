@@ -52,61 +52,64 @@ LIBS =
 
 # JacobianSP
 HAS_JAC_SP =0
-ifeq ($(shell test -f gckpp_JacobianSP.f90 && echo y),y)
+ifeq ($(shell test -f gckpp_JacobianSP.F90 && echo y),y)
   HAS_JAC_SP =1
 endif
 
 # Jacobian
 HAS_JAC = 0
-ifeq ($(shell test -f gckpp_Jacobian.f90 && echo y),y)
+ifeq ($(shell test -f gckpp_Jacobian.F90 && echo y),y)
   HAS_JAC = 1
 endif
 
 # HessianSP
 HAS_HES_SP = 0
-ifeq ($(shell test -f gckpp_HessianSP.f90 && echo y),y)
+ifeq ($(shell test -f gckpp_HessianSP.F90 && echo y),y)
   HAS_HES_SP = 1
 endif
 
 # Hessian
 HAS_HES=0
-ifeq ($(shell test -f gckpp_Hessian.f90 && echo y),y)
+ifeq ($(shell test -f gckpp_Hessian.F90 && echo y),y)
   HAS_HES = 1
 endif
 
 # StoichiomSP
 HAS_STM_SP = 0
-ifeq ($(shell test -f  gckpp_StoichiomSP.f90 && echo y),y)
+ifeq ($(shell test -f  gckpp_StoichiomSP.F90 && echo y),y)
   HAS_STM_SP=1
 endif
 
 # Stoichiom
 HAS_STM = 0
-ifeq ($(shell test -f  gckpp_Stoichiom.f90 && echo y),y)
+ifeq ($(shell test -f  gckpp_Stoichiom.F90 && echo y),y)
   HAS_STM=1
 endif
 
+#############################################################################
+# Construct lists of objects and sources
+#############################################################################
 
 # Command to create Matlab mex gateway routines
 # Note: use $(FC) as the mex Fortran compiler
 MEX  = mex
 
-GENSRC = gckpp_Precision.f90  gckpp_Parameters.f90  gckpp_Global.f90
-GENOBJ = gckpp_Precision.o    gckpp_Parameters.o    gckpp_Global.o
+GENSRC = gckpp_Precision.F90  gckpp_Parameters.F90 gckpp_Global.F90
+GENOBJ = gckpp_Precision.o    gckpp_Parameters.o   gckpp_Global.o
 
-FUNSRC = gckpp_Function.f90
+FUNSRC = gckpp_Function.F90
 FUNOBJ = gckpp_Function.o
 
 JACSRC   =
 JACOBJ   =
 JACSPOBJ =
 ifeq ($(HAS_JAC_SP),1)
-  JACSRC   += gckpp_JacobianSP.f90
+  JACSRC   += gckpp_JacobianSP.F90
   JACOBJ   += gckpp_JacobianSP.o
   JACSPOBJ += gckpp_JacobianSP.o
 endif
 ifeq ($(HAS_JAC),1)
-  JACSRC   += gckpp_Jacobian.f90
+  JACSRC   += gckpp_Jacobian.F90
   JACOBJ   += gckpp_Jacobian.o
 endif
 
@@ -114,12 +117,12 @@ HESSRC   =
 HESOBJ   =
 HESSPOBJ =
 ifeq ($(HAS_HES_SP),1)
-  HESSRC   += gckpp_HessianSP.f90
+  HESSRC   += gckpp_HessianSP.F90
   HESOBJ   += gckpp_HessianSP.o
   HESSPOBJ += gckpp_HessianSP.o
 endif
 ifeq ($(HAS_HES),1)
-  HESSRC   += gckpp_Hessian.f90
+  HESSRC   += gckpp_Hessian.F90
   HESOBJ   += gckpp_Hessian.o
 endif
 
@@ -127,28 +130,28 @@ STMSRC   =
 STMOBJ   =
 STMSPOBJ =
 ifeq ($(HAS_STM_SP),1)
-  STMSRC   += gckpp_StoichiomSP.f90
+  STMSRC   += gckpp_StoichiomSP.F90
   STMOBJ   += gckpp_StoichiomSP.o
   STMSPOBJ += gckpp_StoichiomSP.o
 endif
 ifeq ($(HAS_HES),1)
-  HESSRC   += gckpp_Stoichiom.f90
+  HESSRC   += gckpp_Stoichiom.F90
   HESOBJ   += gckpp_Stoichiom.o
 endif
 
-UTLSRC = gckpp_Rates.f90 gckpp_Util.f90 gckpp_Monitor.f90
+UTLSRC = gckpp_Rates.F90 gckpp_Util.F90 gckpp_Monitor.F90
 UTLOBJ = gckpp_Rates.o   gckpp_Util.o   gckpp_Monitor.o
 
-LASRC  = gckpp_LinearAlgebra.f90
+LASRC  = gckpp_LinearAlgebra.F90
 LAOBJ  = gckpp_LinearAlgebra.o
 
-STOCHSRC = gckpp_Stochastic.f90
+STOCHSRC = gckpp_Stochastic.F90
 STOCHOBJ = gckpp_Stochastic.o
 
-MAINSRC = gckpp_Main.f90        gckpp_Initialize.f90 \
-          gckpp_Integrator.f90  gckpp_Model.f90
-MAINOBJ = gckpp_Main.o          gckpp_Initialize.o   \
-          gckpp_Integrator.o    gckpp_Model.o
+MAINSRC = gckpp_Main.F90       gckpp_Initialize.F90 \
+          gckpp_Integrator.F90 gckpp_Model.F90
+MAINOBJ = gckpp_Main.o         gckpp_Initialize.o   \
+          gckpp_Integrator.o   gckpp_Model.o
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -156,6 +159,8 @@ MAINOBJ = gckpp_Main.o          gckpp_Initialize.o   \
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ALLOBJ = $(GENOBJ) $(FUNOBJ) $(JACOBJ) $(HESOBJ) $(STMOBJ) \
 	 $(UTLOBJ) $(LAOBJ)
+
+SIMPLEOBJ = $(GENOBJ) $(FUNOBJ) $(UTLOBJ) $(LAOBJ)
 
 #############################################################################
 # Makefile targets and rules
@@ -175,9 +180,9 @@ stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
 	-o gckpp_stochastic.exe
 
 mex:    $(ALLOBJ)
-	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Fun.f90     $(ALLOBJ)
-	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Jac_SP.f90  $(ALLOBJ)
-	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Hessian.f90 $(ALLOBJ)
+	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Fun.F90     $(ALLOBJ)
+	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Jac_SP.F90  $(ALLOBJ)
+	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Hessian.F90 $(ALLOBJ)
 
 clean:
 	rm -f *.o *.mod \
@@ -186,64 +191,64 @@ clean:
 
 distclean:
 	rm -f *.o *.mod \
-	gckpp*.dat gckpp.exe gckpp.log \
-	gckpp_*.f90 gckpp_*.f90 gckpp_*.mexglx \
-	results*.m
+	gckpp*.dat gckpp*.exe gckpp.log \
+	gckpp_*.f90 gckpp_*.F90 gckpp_*.mexglx \
+	results*.m 
 
-gckpp_Precision.o: gckpp_Precision.f90
+gckpp_Precision.o: gckpp_Precision.F90
 	$(FC) $(FOPT) -c $<
 
-gckpp_Parameters.o: gckpp_Parameters.f90 gckpp_Precision.o
+gckpp_Parameters.o: gckpp_Parameters.F90 gckpp_Precision.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Monitor.o: gckpp_Monitor.f90 gckpp_Precision.o
+gckpp_Monitor.o: gckpp_Monitor.F90 gckpp_Precision.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Global.o: gckpp_Global.f90 gckpp_Parameters.o gckpp_Precision.o
+gckpp_Global.o: gckpp_Global.F90 gckpp_Parameters.o gckpp_Precision.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Initialize.o: gckpp_Initialize.f90 $(GENOBJ)
+gckpp_Initialize.o: gckpp_Initialize.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Function.o: gckpp_Function.f90 $(GENOBJ)
+gckpp_Function.o: gckpp_Function.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Stochastic.o: gckpp_Stochastic.f90 $(GENOBJ)
+gckpp_Stochastic.o: gckpp_Stochastic.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_JacobianSP.o: gckpp_JacobianSP.f90 $(GENOBJ)
+gckpp_JacobianSP.o: gckpp_JacobianSP.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Jacobian.o: gckpp_Jacobian.f90 $(GENOBJ) $(JACSPOBJ)
+gckpp_Jacobian.o: gckpp_Jacobian.F90 $(GENOBJ) $(JACSPOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_LinearAlgebra.o: gckpp_LinearAlgebra.f90 $(GENOBJ) $(JACSPOBJ)
+gckpp_LinearAlgebra.o: gckpp_LinearAlgebra.F90 $(GENOBJ) $(JACSPOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Rates.o: gckpp_Rates.f90 $(GENOBJ)
+gckpp_Rates.o: gckpp_Rates.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_HessianSP.o: gckpp_HessianSP.f90 $(GENOBJ)
+gckpp_HessianSP.o: gckpp_HessianSP.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Hessian.o:  gckpp_Hessian.f90 $(GENOBJ) $(HESSPOBJ)
+gckpp_Hessian.o:  gckpp_Hessian.F90 $(GENOBJ) $(HESSPOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_StoichiomSP.o: gckpp_StoichiomSP.f90 $(GENOBJ)
+gckpp_StoichiomSP.o: gckpp_StoichiomSP.F90 $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Stoichiom.o: gckpp_Stoichiom.f90 $(GENOBJ) $(STMSPOBJ)
+gckpp_Stoichiom.o: gckpp_Stoichiom.F90 $(GENOBJ) $(STMSPOBJ)
 	$(FC) $(FOPT) -c $<
 
-gckpp_Util.o: gckpp_Util.f90 $(GENOBJ) gckpp_Monitor.o
+gckpp_Util.o: gckpp_Util.F90 $(GENOBJ) gckpp_Monitor.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Main.o: gckpp_Main.f90  $(ALLOBJ) \
+gckpp_Main.o: gckpp_Main.F90 $(ALLOBJ) \
                  gckpp_Initialize.o gckpp_Model.o gckpp_Integrator.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Model.o: gckpp_Model.f90 $(ALLOBJ) gckpp_Integrator.o
+gckpp_Model.o: gckpp_Model.F90 $(ALLOBJ) gckpp_Integrator.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Integrator.o: gckpp_Integrator.f90 $(ALLOBJ)
+gckpp_Integrator.o: gckpp_Integrator.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<

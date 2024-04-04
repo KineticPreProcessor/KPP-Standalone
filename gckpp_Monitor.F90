@@ -15,7 +15,7 @@
 !        H. Lin,      Harvard University, Cambridge, MA, USA
 !        R. Yantosca, Harvard University, Cambridge, MA, USA
 ! 
-! File                 : gckpp_Monitor.f90
+! File                 : gckpp_Monitor.F90
 ! Equation file        : gckpp.kpp
 ! Output root filename : gckpp
 ! 
@@ -1085,6 +1085,10 @@ MODULE gckpp_Monitor
     EQN_NAMES_20, EQN_NAMES_21, EQN_NAMES_22, EQN_NAMES_23, EQN_NAMES_24, &
     EQN_NAMES_25, EQN_NAMES_26, EQN_NAMES_27, EQN_NAMES_28, EQN_NAMES_29, &
     EQN_NAMES_30 /)
+
+
+  INTEGER, PARAMETER, DIMENSION(7) :: FAM_MAP = (/ &
+      31, 32, 33, 34, 35, 36, 37 /) ! index up to 7
 
   CHARACTER(LEN=32), PARAMETER, DIMENSION(7) :: FAM_NAMES = (/ &
      'POx                             ','LOx                             ','PCO                             ', & ! index 1 - 3

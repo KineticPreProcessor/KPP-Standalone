@@ -4,6 +4,7 @@
 #HESSIAN off
 #MEX off
 #STOICMAT on
+#UPPERCASEF90 on
 
 #INCLUDE fullchem.eqn
 
