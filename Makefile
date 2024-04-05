@@ -80,8 +80,11 @@ MODOBJ   = gckpp_Model.o
 INISRC   = gckpp_Initialize.F90
 INIOBJ 	 = gckpp_Initialize.o
 
-SFCSRC   = initialize.F90 setquants.F90
+SFCSRC   = initialize.F90 setquants.F90 
 SFCOBJ   = initialize.o setquants.o
+
+PRDSRC   = predictions..F90
+PRDOBJ   = predictions.o
 
 STOICHSRC = gckpp_StoichiomSP.F90 gckpp_Stoichiom.F90
 STOICHOBJ = gckpp_StoichiomSP.o gckpp_Stoichiom.o
@@ -94,7 +97,8 @@ MAINOBJ = boxmodel.o     gckpp_Initialize.o     gckpp_Integrator.o
 #       objects needed by your application
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
-	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ) $(STOICHOBJ)
+	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ) $(STOICHOBJ) \
+	 $(PRDOBJ)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -105,6 +109,7 @@ all:    exe
 exe:	$(ALLOBJ) $(MAINOBJ) 
 	$(FC) $(FOPT) boxmodel.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o gckpp.exe
 	$(FC) $(FOPT) rtoltest.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o rtoltest.exe
+	$(FC) $(FOPT) generatetestdata.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o generatetestdata.exe
 
 stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
 	$(FC) $(FOPT) $(ALLOBJ) $(STOCHOBJ) $(MAINOBJ) $(LIBS) \
@@ -118,11 +123,11 @@ mex:    $(ALLOBJ)
 clean:
 	rm -f *.o *.mod boxmodel.o rtoltest.o\
 	gckpp*.dat gckpp.exe rtoltest.exe gckpp*.mexglx \
-	gckpp.map
+	gckpp.map generatetestdata.exe
 
 distclean:
 	rm -f *.o *.mod \
-	gckpp*.dat gckpp.exe gckpp.map \
+	gckpp*.dat *.exe gckpp.map \
 	gckpp*.F90 gckpp_*.mexglx
 
 gckpp_Precision.o: gckpp_Precision.F90 
@@ -191,10 +196,16 @@ boxmodel.o: boxmodel.F90 $(ALLOBJ)
 rtoltest.o: rtoltest.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
+generatetestdata.o: generatetestdata.F90 $(ALLOBJ)
+	$(FC) $(FOPT) -c $<
+
 setquants.o: setquants.F90 gckpp_Model.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
 initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)
+	$(FC) $(FOPT) -c $<
+
+predictions.o: predictions.F90 gckpp_Parameters.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
 preconditioner.o: preconditioner.F90 gckpp_Parameters.o $(ALLOBJ)

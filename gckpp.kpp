@@ -1,4 +1,4 @@
-#INTEGRATOR rosenbrock_autoreduce
+#INTEGRATOR rosenbrock
 #LANGUAGE Fortran90
 #DRIVER none
 #HESSIAN off
