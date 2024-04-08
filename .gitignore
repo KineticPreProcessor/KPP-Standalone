@@ -1,8 +1,6 @@
 *.[oax]
 *.mod
 *.map
-*.txt
-*.csv
 *.MOD
 *~*
 *.swp
@@ -16,10 +14,11 @@
 *.ppk
 *.log
 bin/*
-gckpp.exe
+*.exe
 Figures
 Figure/*
 images
 images/*
-#*.txt
 *.py
+*.txt
+*.csv

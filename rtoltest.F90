@@ -9,6 +9,7 @@ program main
   USE gckpp_StoichiomSP
   USE GCKPP_MODEL
   USE SETQUANTS
+  USE PREDICTIONS
 
   IMPLICIT NONE
 
@@ -51,16 +52,23 @@ program main
   ! Experiment 1: Run for one set of initial conditions
   !               and print end concentrations to file 
 
-   filename = 'samples/BorneoTwilight_L23_20181001_1015.txt'
-   ! Read the input
-   read(unit, '(A)', iostat=iostat) filename
-   call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
-   ! Run the full mechanism
-   call fullmech(.false.,1,RTOL_VALUE=1e-2_dp)
+  open(newunit=unit, file='testlist_twilight.txt', status='old', action='read')
+  read(unit, '(I10)', iostat=iostat) NFILES
+  write(*,*) 'NFILES for testing: ', NFILES
+  call set_rtol_preds()
+  DO II = 1,NFILES
+     ! Read the input
+     read(unit, '(A)', iostat=iostat) filename
+     write(*,*) 'Test file: ', trim(filename), ' ', trim(testfiles(II))
+     call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+     call fullmech(II)
+  ENDDO
+
+  close(unit)
 
  CONTAINS
 
-  subroutine fullmech( init , RELAX_RTOL_CASE, RTOL_VALUE)
+  subroutine fullmech( index )
     USE GCKPP_INTEGRATOR
     USE GCKPP_RATES
     USE GCKPP_INITIALIZE
@@ -68,9 +76,7 @@ program main
 
     IMPLICIT NONE
 
-    LOGICAL :: init
-    INTEGER :: RELAX_RTOL_CASE
-    REAL(dp)    :: RTOL_VALUE
+    INTEGER :: index
 
     ! Set OPTIONS
     IERR      = 0                 ! Success or failure flag
@@ -87,7 +93,7 @@ program main
     
     ! Tolerances
     ATOL      = 1e-2_dp
-    RTOL      = RTOL_VALUE ! default in GEOS-CF 2.0 is 0.5e-2_dp
+    RTOL      = 1e-2_dp
 
     ! Set ENV
     T    = 0d0
@@ -111,7 +117,7 @@ program main
          RCNTRL, ISTATUS, RSTATE, IERR )
     Ctrue = C
     NSTEPSt = ISTATUS(3)
-    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
+!    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
 
     ! Run the integration with predicted RTOL
     call cpu_time(start)
@@ -128,17 +134,41 @@ program main
     ! Set RCONST
     call Update_RCONST()
 
-    CALL Fun( C, FIX, RCONST, Vloc )
+    ! Set the RTOL vals
+    RTOL(ind_I2O2) = RTOL_p(II,ind_I2O2)
+    RTOL(ind_I2O4) = RTOL_p(II,ind_I2O4)
+    RTOL(ind_IO) = RTOL_p(II,ind_IO)
+    RTOL(ind_O) = RTOL_p(II,ind_O)
+    RTOL(ind_HNO4) = RTOL_p(II,ind_HNO4)
+    RTOL(ind_OIO) = RTOL_p(II,ind_OIO)
+    RTOL(ind_Cl) = RTOL_p(II,ind_Cl)
+    RTOL(ind_ClOO) = RTOL_p(II,ind_ClOO)
+    RTOL(ind_I2O3) = RTOL_p(II,ind_I2O3)
+    RTOL(ind_HOBr) = RTOL_p(II,ind_HOBr)
+    RTOL(ind_HO2) = RTOL_p(II,ind_HO2)
+    RTOL(ind_OH) = RTOL_p(II,ind_OH)
+    RTOL(ind_I) = RTOL_p(II,ind_I)
+    RTOL(ind_Br) = RTOL_p(II,ind_Br)
+    RTOL(ind_CO2) = RTOL_p(II,ind_CO2)
+    RTOL(ind_ClO) = RTOL_p(II,ind_ClO)
+    RTOL(ind_IONO2) = RTOL_p(II,ind_IONO2)
+    RTOL(ind_N2O5) = RTOL_p(II,ind_N2O5)
+    RTOL(ind_IONO) = RTOL_p(II,ind_IONO)
+    RTOL(ind_OClO) = RTOL_p(II,ind_OClO)
 
-    ! Get a random RTOL
-    CALL RANDOM_NUMBER(RTOL)
-    RTOL = 10**(-2.*RTOL)
+    ! Protect against negative tolerances. Not good!
+    ! How to prevent this?
+    where(RTOL <= 0.) RTOL = 0.5e-2
+
+    RCNTRL    = 0.0_dp            ! Rosenbrock input
+    RCNTRL(3) = Hstart
+    RSTATE    = 0.0_dp            ! Rosenbrock output
 
     ! Integrate
     CALL Integrate( TIN,    TOUT,    ICNTRL,      &
          RCNTRL, ISTATUS, RSTATE, IERR )
 
-    write(*,*) 'NSTEPS: ', NSTEPSt, ISTATUS(3)
+    write(*,*) 'NSTEPS: full', NSTEPSt, ' pred',ISTATUS(3)
     write(*,*) C(ind_O3)
     write(*,*) Ctrue(ind_O3)
     write(*,*) 100*(C(ind_O3)-Ctrue(ind_O3))/Ctrue(ind_O3),"%"

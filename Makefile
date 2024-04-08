@@ -193,7 +193,7 @@ gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 boxmodel.o: boxmodel.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-rtoltest.o: rtoltest.F90 $(ALLOBJ)
+rtoltest.o: rtoltest.F90 predictions.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
 generatetestdata.o: generatetestdata.F90 $(ALLOBJ)
