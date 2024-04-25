@@ -12,7 +12,6 @@ MODULE gckpp_Model
   USE gckpp_Integrator
   USE gckpp_Rates
   USE gckpp_Jacobian
-  USE gckpp_Stoichiom
   USE gckpp_LinearAlgebra
   USE gckpp_Monitor
   USE gckpp_Util

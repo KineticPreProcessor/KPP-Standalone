@@ -1,1 +1,0 @@
-samples/LosAngeles_L1_20180702_1730.txt

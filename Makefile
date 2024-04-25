@@ -65,8 +65,8 @@ FUNOBJ = gckpp_Function.o
 JACSRC = gckpp_JacobianSP.F90  gckpp_Jacobian.F90
 JACOBJ = gckpp_JacobianSP.o    gckpp_Jacobian.o
 
-UTLSRC = gckpp_Rates.F90 gckpp_Util.F90 gckpp_Monitor.F90
-UTLOBJ = gckpp_Rates.o   gckpp_Util.o   gckpp_Monitor.o
+UTLSRC = gckpp_Rates.F90 gckpp_Util.F90 gckpp_Monitor.F90 fullchem_RateLawFuncs.F90 rateLawUtilFuncs.F90
+UTLOBJ = gckpp_Rates.o   gckpp_Util.o   gckpp_Monitor.o fullchem_RateLawFuncs.o rateLawUtilFuncs.o
 
 LASRC  = gckpp_LinearAlgebra.F90 
 LAOBJ  = gckpp_LinearAlgebra.o   
@@ -80,21 +80,16 @@ MODOBJ   = gckpp_Model.o
 INISRC   = gckpp_Initialize.F90
 INIOBJ 	 = gckpp_Initialize.o
 
-SFCSRC   = initialize.F90 setquants.F90
-SFCOBJ   = initialize.o setquants.o
+MAINSRC = kpp_standalone.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90 
+MAINOBJ = kpp_standalone.o     gckpp_Initialize.o     gckpp_Integrator.o
 
-STOICHSRC = gckpp_StoichiomSP.F90 gckpp_Stoichiom.F90
-STOICHOBJ = gckpp_StoichiomSP.o gckpp_Stoichiom.o
-
-MAINSRC = boxmodel.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
-MAINOBJ = boxmodel.o     gckpp_Initialize.o     gckpp_Integrator.o
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
 #       objects needed by your application
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
-	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ) $(STOICHOBJ)
+	 $(UTLOBJ) $(LAOBJ) $(MODOBJ) $(INIOBJ) $(SFCOBJ) 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -102,9 +97,9 @@ ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 all:    exe
 
-exe:	$(ALLOBJ) $(MAINOBJ) 
-	$(FC) $(FOPT) boxmodel.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o gckpp.exe
-	$(FC) $(FOPT) rtoltest.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o rtoltest.exe
+exe:	$(ALLOBJ) $(MAINOBJ) kpp_standalone_init.o
+	$(FC) $(FOPT) kpp_standalone.F90 gckpp_Integrator.o kpp_standalone_init.o $(ALLOBJ) $(LIBS) -o kpp_standalone.exe
+
 
 stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
 	$(FC) $(FOPT) $(ALLOBJ) $(STOCHOBJ) $(MAINOBJ) $(LIBS) \
@@ -116,13 +111,13 @@ mex:    $(ALLOBJ)
 	$(MEX) FC#$(FC) -fortran -O gckpp_mex_Hessian.F90 $(ALLOBJ)
 
 clean:
-	rm -f *.o *.mod boxmodel.o rtoltest.o\
-	gckpp*.dat gckpp.exe rtoltest.exe gckpp*.mexglx \
+	rm -f *.o *.mod\
+	gckpp*.dat kpp_standalone.exe gckpp*.mexglx \
 	gckpp.map
 
 distclean:
 	rm -f *.o *.mod \
-	gckpp*.dat gckpp.exe gckpp.map \
+	gckpp*.dat kpp_standalone.exe gckpp.map \
 	gckpp*.F90 gckpp_*.mexglx
 
 gckpp_Precision.o: gckpp_Precision.F90 
@@ -158,19 +153,19 @@ gckpp_Jacobian.o: gckpp_Jacobian.F90  $(GENOBJ) gckpp_JacobianSP.o
 gckpp_LinearAlgebra.o: gckpp_LinearAlgebra.F90 $(GENOBJ) gckpp_JacobianSP.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Rates.o: gckpp_Rates.F90  $(GENOBJ) 
+rateLawUtilFuncs.o: rateLawUtilFuncs.F90
+	$(FC) $(FOPT) -c $<
+
+fullchem_RateLawFuncs.o: fullchem_RateLawFuncs.F90 rateLawUtilFuncs.o
+	$(FC) $(FOPT) -c $<
+
+gckpp_Rates.o: gckpp_Rates.F90  $(GENOBJ) fullchem_RateLawFuncs.o
 	$(FC) $(FOPT) -c $<
 
 gckpp_HessianSP.o: gckpp_HessianSP.F90  $(GENOBJ)
 	$(FC) $(FOPT) -c $<
 
 gckpp_Hessian.o:  gckpp_Hessian.F90 $(GENOBJ) gckpp_HessianSP.o
-	$(FC) $(FOPT) -c $<
-
-gckpp_StoichiomSP.o: gckpp_StoichiomSP.F90 $(GENOBJ)
-	$(FC) $(FOPT) -c $<
-
-gckpp_Stoichiom.o: gckpp_Stoichiom.F90  $(GENOBJ) gckpp_StoichiomSP.o
 	$(FC) $(FOPT) -c $<
 
 gckpp_Util.o: gckpp_Util.F90  $(GENOBJ) gckpp_Monitor.o
@@ -185,17 +180,13 @@ gckpp_Model.o: gckpp_Model.F90  $(ALLOBJ) gckpp_Integrator.o
 gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-boxmodel.o: boxmodel.F90 $(ALLOBJ)
+kpp_standalone_init.o: kpp_standalone_init.F90 gckpp_Parameters.o
 	$(FC) $(FOPT) -c $<
 
-rtoltest.o: rtoltest.F90 $(ALLOBJ)
-	$(FC) $(FOPT) -c $<
+# kpp_standalone.o: kpp_standalone.F90 kpp_standalone_init.o gckpp_Integrator.o $(ALLOBJ)
+# 	$(FC) $(FOPT) -c $<
 
-setquants.o: setquants.F90 gckpp_Model.o $(ALLOBJ)
-	$(FC) $(FOPT) -c $<
 
-initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)
-	$(FC) $(FOPT) -c $<
 
-preconditioner.o: preconditioner.F90 gckpp_Parameters.o $(ALLOBJ)
-	$(FC) $(FOPT) -c $<
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

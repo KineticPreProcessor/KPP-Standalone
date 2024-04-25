@@ -86,6 +86,13 @@ ifeq ($(shell test -f  gckpp_Stoichiom.F90 && echo y),y)
   HAS_STM=1
 endif
 
+# If an external rates module has been suppllied,
+# also define the correspoinding object file
+ifdef EXTERNAL_RATES_F90
+  EXTERNAL_RATES_OBJ := $(EXTERNAL_RATES_F90:.f90=.o)
+  EXTERNAL_RATES_OBJ := $(EXTERNAL_RATES_OBJ:.F90=.o)
+endif
+
 #############################################################################
 # Construct lists of objects and sources
 #############################################################################
@@ -94,8 +101,12 @@ endif
 # Note: use $(FC) as the mex Fortran compiler
 MEX  = mex
 
-GENSRC = gckpp_Precision.F90  gckpp_Parameters.F90 gckpp_Global.F90
-GENOBJ = gckpp_Precision.o    gckpp_Parameters.o   gckpp_Global.o
+# NOTE: Allow for an external module to be USE-d by F90_Rates
+# by specifying the relevant environment variables.
+GENSRC = gckpp_Precision.F90  gckpp_Parameters.F90  \
+         gckpp_Global.F90     $(EXTERNAL_RATES_F90)
+GENOBJ = gckpp_Precision.o    gckpp_Parameters.o    \
+         gckpp_Global.o       $(EXTERNAL_RATES_OBJ)
 
 FUNSRC = gckpp_Function.F90
 FUNOBJ = gckpp_Function.o
@@ -193,7 +204,7 @@ distclean:
 	rm -f *.o *.mod \
 	gckpp*.dat gckpp*.exe gckpp.log \
 	gckpp_*.f90 gckpp_*.F90 gckpp_*.mexglx \
-	results*.m 
+	results*.m *.dat
 
 gckpp_Precision.o: gckpp_Precision.F90
 	$(FC) $(FOPT) -c $<
@@ -252,3 +263,12 @@ gckpp_Model.o: gckpp_Model.F90 $(ALLOBJ) gckpp_Integrator.o
 
 gckpp_Integrator.o: gckpp_Integrator.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
+
+# Define rule for a user-defined module that gets USE-d by F90_Rates.
+# This rule is only applied if both variables are not blank.
+ifdef EXTERNAL_RATES_F90
+ifdef EXTERNAL_RATES_OBJ
+$(EXTERNAL_RATES_OBJ): $(EXTERNAL_RATES_F90) gckpp_Precision.o gckpp_Global.o gckpp_Parameters.o
+	$(FC) $(FOPT) -c $<
+endif
+endif
