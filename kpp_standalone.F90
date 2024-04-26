@@ -83,7 +83,7 @@ program main
   call fullmech(RTOL_VALUE=0.5e-2_dp)
 
   ! Write the output file (not working yet)
-  outputfile = "StandaloneOutput_"//trim(inputfile)
+!   outputfile = "StandaloneOutput_"//trim(inputfile)
 !   call write_output(inputfile,outputfile)
 
 CONTAINS
