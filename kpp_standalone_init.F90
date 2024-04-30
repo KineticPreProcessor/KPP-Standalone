@@ -88,13 +88,13 @@ USE gckpp_Parameters
      end if
      idx = index(line, ',') + 1
      read(line(idx:), *) C(i)
-     ! Check if the species name matches the expected SPC_NAMES(i)
-      ! if (index(line, SPC_NAMES(SPC_MAP(i))) == 0) then
-      !     print *, "Error: species name mismatch"
-      !     print *, "Expected: ", SPC_NAMES(i)
-      !     print *, "Found: ", line
-      !     stop
-      ! end if
+    !  Check if the species name matches the expected SPC_NAMES(i)
+      if (trim(line(1:idx-2)) /= trim(SPC_NAMES(i))) then
+          print *, "Error: species name mismatch"
+          print *, "Expected: ", SPC_NAMES(i)
+          print *, "Found: ", line(1:idx-2)
+          stop
+      end if
   end do
   ! Read the rate constants
   do i = 1, NREACT
