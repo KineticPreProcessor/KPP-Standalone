@@ -3,7 +3,7 @@ module kpp_standalone_init
   public
 contains
 
-subroutine read_input(filename, R, C, SPC_NAMES, Hstart, cosSZA, level, fileTotSteps, OperatorTimestep)
+subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
 USE gckpp_Parameters
 
   IMPLICIT NONE
@@ -11,6 +11,7 @@ USE gckpp_Parameters
   real(dp), intent(out) :: C(NSPEC)
   real(dp), intent(out) :: R(NREACT)
   real(dp), intent(out) :: Hstart
+  real(dp), intent(out) :: Hexit
   real(dp), intent(out) :: cosSZA
   real(dp), intent(out) :: OperatorTimestep
   integer, intent(out)  :: level
@@ -62,10 +63,17 @@ USE gckpp_Parameters
       read(line(idx:), *) cosSZA
      end if
      ! get Hstart
-     if (index(line, 'Initial KPP H val (seconds):') > 0 ) then
+     if (index(line, 'Init KPP Timestep (seconds):') > 0 ) then
       idx = index(line, ':') + 1
       read(line(idx:), *) Hstart
      end if
+
+     ! get Hexit
+     if (index(line, 'Exit KPP Timestep (seconds):') > 0 ) then
+      idx = index(line, ':') + 1
+      read(line(idx:), *) Hexit
+     end if
+
      ! get fileTotSteps
      if (index(line, 'Number of internal timesteps:') > 0 ) then
       idx = index(line, ':') + 1

@@ -1,6 +1,5 @@
 program main
 
-
 ! The KPP Standalone for GEOS-Chem Mechanism Analysis
 ! 
 ! 
@@ -19,7 +18,7 @@ program main
 !  Journal of Advances in Modeling Earth Systems, 15, e2022MS003293. https://doi.org/10.1029/2022MS003293
 
 ! Updates:
-!  - 2024/04/25, Obin Sturm: Simplification of the code for the GEOS-Chem KPP Standalone,
+!  - 2024/05/06, Obin Sturm: Simplification of the code for the GEOS-Chem KPP Standalone,
 !                            removed all autoreduce and convergence criteria testing.
 !                            The more general tool just runs one operator timestep 
 !                            and then prints out the results to an output file.
@@ -41,6 +40,7 @@ program main
   REAL(dp)               :: OperatorTimestep
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
+  REAL(dp)               :: Hexit
   REAL(dp)               :: cosSZA
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, end
@@ -59,32 +59,41 @@ program main
   character(len=256) :: outputfile
 
 
+  ! Check if an argument was provided
+  if (command_argument_count() .ge. 1) then
+    ! Get the first argument
+    call get_command_argument(1, inputfile)
+    print*, 'Processing sample: ', trim(inputfile)
+   else 
+    print*, 'No sample provided. Exiting.'
+   endif
+   ! If a second argument is provided, use it as the output file
+   if (command_argument_count() .ge. 2) then
+     ! Get the second argument
+     call get_command_argument(2, outputfile)
+     print*, 'Output file: ', trim(outputfile)
+   endif
+
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NRTOL iteration
 !  REINIT       = .false. ! Let C evolve over the NRTOL loop
-  NRTOL         = 25
+  NRTOL         = 0
 
 
-  ! Check if an argument was provided
-  if (command_argument_count() .ge. 1) then
-   ! Get the first argument
-   call get_command_argument(1, inputfile)
-   print*, 'Processing sample: ', trim(inputfile)
-  else 
-   print*, 'No sample provided. Exiting.'
-  endif
+
 
   ! Read the input file
-  call read_input(inputfile, R, Cinit, SPC_NAMES, Hstart, cosSZA, level, fileTotSteps, OperatorTimestep)
+  call read_input(inputfile, R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
 
 
   
   ! Run the full mechanism
   call fullmech(RTOL_VALUE=0.5e-2_dp)
 
-  ! Write the output file (not working yet)
-!   outputfile = "StandaloneOutput_"//trim(inputfile)
-!   call write_output(inputfile,outputfile)
+  ! Write the output file
+  if (command_argument_count() .ge. 2) then
+    call write_output(inputfile,outputfile)
+  endif
 
 CONTAINS
 
@@ -103,6 +112,7 @@ CONTAINS
     ISTATUS   = 0                 ! Rosenbrock output 
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RCNTRL(3) = Hstart
+    ! write(*,'(a,f10.2)') " Hstart: ", Hstart
     RSTATE    = 0.0_dp            ! Rosenbrock output
     ICNTRL    = 0
     ICNTRL(1) = 1
@@ -137,7 +147,19 @@ CONTAINS
     CALL Integrate( TIN,    TOUT,    ICNTRL,      &
          RCNTRL, ISTATUS, RSTATE, IERR )
     NSTEPSt = ISTATUS(3)
-    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
+    write(*,'(a,i5)') " Number of internal timesteps (from 3D run): ", fileTotSteps
+    write(*,'(a,i5)') " Number of internal timesteps ( standalone): ", ISTATUS(3)
+    ! write Hexit for 3D vs standalone
+    write(*,'(a,f10.2)') " Hexit: ", Hexit
+    write(*,'(a,f10.2)') " Hexit: ", RSTATE(2)
+
+    ! Check if 3D results are consistent with standalone
+    if (fileTotSteps /= ISTATUS(3)) then
+       write(0,*) "Warning: Number of internal steps do not match 3D grid cell"
+    endif
+    if (abs(Hexit-RSTATE(2))/Hexit>.001) then
+       write(0,*) "Warning: final timestep does not match 3D grid cell within 0.1%"
+    endif
 
     ! Run the RTOL variation loop
     DO I=1,NRTOL       
@@ -152,40 +174,65 @@ CONTAINS
        CALL Fun( C, FIX, RCONST, Vloc )
 
        ! Get a random RTOL
-      !  CALL RANDOM_NUMBER(RTOL)
-      !  RTOL = 10**(-2.*RTOL)
+       CALL RANDOM_NUMBER(RTOL)
+       RTOL = 10**(-2.*RTOL)
 
        ! Integrate
        CALL Integrate( TIN,    TOUT,    ICNTRL,      &
             RCNTRL, ISTATUS, RSTATE, IERR )
        call cpu_time(end)
+       write(*,*) "Number of internal timesteps random RTOL: ", ISTATUS(3)
     ENDDO
 
 
     return
  end subroutine fullmech
 
-!  subroutine write_output(inputfile, outputfile)
-!     character(len=256) :: outputfile
-!     character(len=256) :: inputfile
-!     integer :: num_header
-!     integer :: i
-!     character(len=256) :: line
+ subroutine write_output(inputfile, outputfile)
+    ! USE GCKPP_GLOBAL
+    character(len=256) :: outputfile
+    character(len=256) :: inputfile
+    character(len=256) :: header(30)
+    integer :: i
+    character(len=256) :: line
 
-!     ! Read the first line of the input file containing the lines of header
-!       open(10, file=inputfile, status='old')
-!       read(10,*) num_header
-!       close(10)
+    ! Write meteo data lines of the input to the output file
+    open(20, file=outputfile)
+    open(10, file=inputfile, status='old')
+    
+    ! Write the header lines to the output file
+    write(20, '(A)') "30"
+    write(20, '(A)') "==========================================================================="
+    write(20, '(A)') ""
+    write(20, '(A)') "KPP Standalone Output"
+    write(20, '(A)') "This file contains the concentrations of all the chemical species"
+    write(20, '(A)') "in a single grid cell of a GEOS-Chem 3D run as replicated by the "
+    write(20, '(A)') "KPP Standalone. Concentrations before and after the operator timestep"
+    write(20, '(A)') "are in CSV format, below."
+    write(20, '(A)') ""
+    write(20, '(A)') "Generated by the GEOS-Chem KPP Standalone:"
+    write(20, '(A)') "https://github.com/KineticPreProcessor/KPP-Standalone"
+    write(20, '(A)') ""
+    write(20, '(A)') "Input file used: " // trim(inputfile)
 
-!       ! Write num_header lines of the input to the output file
-!       open(20, file=outputfile, status='unknown')
-!       write(20,*) num_header
-!       open(10, file=inputfile, status='old')
-!       do i=1,num_header
-!          read(10,*) line
-!          write(20,*) line
-!       enddo
-!       close(10)
-!  end subroutine write_output
+    ! Skip the first 26 lines of the input file
+    do i=1,26
+       read(10,'(A)') line
+    enddo
+    do i=27,43
+       read(10,'(A)') line
+       write(20,'(A)') line
+    enddo
+    close(10)
+    write(20, '(A)') ""
+    write(20, '(A)') "==========================================================================="
+    write(20, '(A)') "Species Name,Initial Concentration (molec/cc),Final Concentration (molec/cc)"
+    ! write the species names, initial and final concentrations
+    do i=1,NSPEC
+       write(20, '(A,E25.16,A,E25.16)') trim(SPC_NAMES(i))//",", Cinit(i), ",", C(i)
+    enddo
+    close(20)
+
+ end subroutine write_output
 
 end program main
