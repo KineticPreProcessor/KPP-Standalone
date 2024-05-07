@@ -5,6 +5,7 @@
 import os
 import subprocess
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # 1) Read all the files in a samples local directory
 sample_dir = 'samples'  # replace with your directory path
@@ -62,3 +63,6 @@ else:
 
     # Save the data frame to a csv file
     # df.to_csv('warnings.csv', index=False)
+
+    # plt.hist((df['Number of internal timesteps ( standalone)'] - df['Number of internal timesteps (from 3D run)']))
+    # plt.xlabel('Difference in internal timesteps, Standalone to 3D')
