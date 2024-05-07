@@ -22,4 +22,4 @@ Figure/*
 images
 images/*
 #*.txt
-*.py
+#*.py
