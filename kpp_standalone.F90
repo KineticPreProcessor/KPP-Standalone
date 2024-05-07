@@ -150,8 +150,8 @@ CONTAINS
     write(*,'(a,i5)') " Number of internal timesteps (from 3D run): ", fileTotSteps
     write(*,'(a,i5)') " Number of internal timesteps ( standalone): ", ISTATUS(3)
     ! write Hexit for 3D vs standalone
-    write(*,'(a,f10.2)') " Hexit: ", Hexit
-    write(*,'(a,f10.2)') " Hexit: ", RSTATE(2)
+    write(*,'(a,f10.2)') " Hexit (from 3D run): ", Hexit
+    write(*,'(a,f10.2)') " Hexit ( standalone): ", RSTATE(2)
 
     ! Check if 3D results are consistent with standalone
     if (fileTotSteps /= ISTATUS(3)) then
