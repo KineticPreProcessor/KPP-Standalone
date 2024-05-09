@@ -50,13 +50,16 @@ class ChemicalCase:
                 value = float(value)
             except ValueError:
                 # check if it's a float in scientific notation without the 'e'
-                print(value)
+                # this can happen for 3 digit exponents
                 if '-' in value and '.' in value:
                     mantissa, exponent = value.split('-')
                     try:
                         value = float(mantissa) * 10 ** -int(exponent)
+                        print("Warning: scientific notation without 'e' found in file " + self.filename)
                     except ValueError:
-                        pass
+                        raise ValueError(f"Error: unable to convert {value} to float in file {self.filename}")
+                else:
+                    raise ValueError(f"Error: unable to convert {value} to float in file {self.filename}")
             if key == 'R1':
                 current_list = self.rate_constants
             elif key == 'A1':
@@ -67,5 +70,5 @@ class ChemicalCase:
                 current_list.append(value)
 
 # load in a data example: assumed local, though a full path can be specified
-filepath = "Beijing_L1_20200106_1345.txt"
-beijing_surface = ChemicalCase(filepath)
+# filepath = "Beijing_L1_20200106_1345.txt"
+# beijing_surface = ChemicalCase(filepath)
