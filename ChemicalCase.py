@@ -45,7 +45,18 @@ class ChemicalCase:
         for line in lines:
             key, value = line.split(',')
             key = key.strip()
-            value = float(value.strip())
+            value = value.strip()
+            try:
+                value = float(value)
+            except ValueError:
+                # check if it's a float in scientific notation without the 'e'
+                print(value)
+                if '-' in value and '.' in value:
+                    mantissa, exponent = value.split('-')
+                    try:
+                        value = float(mantissa) * 10 ** -int(exponent)
+                    except ValueError:
+                        pass
             if key == 'R1':
                 current_list = self.rate_constants
             elif key == 'A1':
