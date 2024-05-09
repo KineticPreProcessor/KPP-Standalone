@@ -21,5 +21,6 @@ Figures
 Figure/*
 images
 images/*
+*.pyc
 #*.txt
 #*.py
