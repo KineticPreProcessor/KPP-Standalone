@@ -18,16 +18,16 @@ LCH4 : CH4;
 PH2O2 : H2O2;
 
 #INLINE F90_GLOBAL
+#include "commonIncludeVars.H"
       REAL(kind=dp) :: R(NREACT)
-!>>      LOGICAL :: DO_JVS(LU_NONZERO)
-!>>      LOGICAL :: DO_SLV(NVAR+1)
-!>>      LOGICAL :: DO_FUN(NVAR)
-!>>      INTEGER :: cLU_IROW(LU_NONZERO)  ! Compacted ROW indexes
-!>>      INTEGER :: cLU_ICOL(LU_NONZERO)  ! Compacted COL indexes
-!>>      INTEGER :: cLU_CROW(NVAR+1)  ! Compacted compressed row vector
-!>>      INTEGER :: cLU_DIAG(NVAR+1)  ! Compacted DIAG indexes
-!>>      INTEGER :: JVS_MAP(LU_NONZERO)   ! Map to JVS from compacted sparse data
-!>>      INTEGER :: SPC_MAP(NVAR)   ! Map species (for Fun(), etc.)
-!>>      INTEGER :: rNVAR     ! Compacted number of variable species
-!>>      INTEGER :: cNONZERO  ! Compacted number of non-zero elements in cJVS
 #ENDINLINE
+
+#INLINE F90_RCONST
+  ! Inline an include file containing rate law definitions, which
+  ! will be inserted directly into subroutine Update_Rconst().
+  ! This is necessary as a workaround for KPP not being able to
+  ! include very large files ( > 200000 chars) directly.
+  !  -- Bob Yantosca (11 Jun 2021)
+  USE fullchem_RateLawFuncs
+#ENDINLINE
+

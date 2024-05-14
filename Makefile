@@ -65,8 +65,8 @@ FUNOBJ = gckpp_Function.o
 JACSRC = gckpp_JacobianSP.F90  gckpp_Jacobian.F90
 JACOBJ = gckpp_JacobianSP.o    gckpp_Jacobian.o
 
-UTLSRC = gckpp_Rates.F90 gckpp_Util.F90 gckpp_Monitor.F90
-UTLOBJ = gckpp_Rates.o   gckpp_Util.o   gckpp_Monitor.o
+UTLSRC = gckpp_Rates.F90 gckpp_Util.F90 gckpp_Monitor.F90 fullchem_RateLawFuncs.F90 rateLawUtilFuncs.F90
+UTLOBJ = gckpp_Rates.o   gckpp_Util.o   gckpp_Monitor.o fullchem_RateLawFuncs.o rateLawUtilFuncs.o
 
 LASRC  = gckpp_LinearAlgebra.F90 
 LAOBJ  = gckpp_LinearAlgebra.o   
@@ -80,8 +80,8 @@ MODOBJ   = gckpp_Model.o
 INISRC   = gckpp_Initialize.F90
 INIOBJ 	 = gckpp_Initialize.o
 
-SFCSRC   = initialize.F90 setquants.F90 
-SFCOBJ   = initialize.o setquants.o
+SFCSRC   = initialize.F90 #setquants.F90 
+SFCOBJ   = initialize.o #setquants.o
 
 PRDSRC   = predictions..F90
 PRDOBJ   = predictions.o
@@ -89,7 +89,7 @@ PRDOBJ   = predictions.o
 STOICHSRC = gckpp_StoichiomSP.F90 gckpp_Stoichiom.F90
 STOICHOBJ = gckpp_StoichiomSP.o gckpp_Stoichiom.o
 
-MAINSRC = boxmodel.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90
+MAINSRC = boxmodel.F90   gckpp_Initialize.F90   gckpp_Integrator.F90  gckpp_Model.F90
 MAINOBJ = boxmodel.o     gckpp_Initialize.o     gckpp_Integrator.o
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,6 +110,7 @@ exe:	$(ALLOBJ) $(MAINOBJ)
 	$(FC) $(FOPT) boxmodel.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o gckpp.exe
 	$(FC) $(FOPT) rtoltest.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o rtoltest.exe
 	$(FC) $(FOPT) generatetestdata.F90 gckpp_Integrator.o $(ALLOBJ) $(LIBS) -o generatetestdata.exe
+	$(FC) $(FOPT) createfilelist.F90 $(ALLOBJ) $(LIBS) -o createfilelist.exe
 
 stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
 	$(FC) $(FOPT) $(ALLOBJ) $(STOCHOBJ) $(MAINOBJ) $(LIBS) \
@@ -123,7 +124,7 @@ mex:    $(ALLOBJ)
 clean:
 	rm -f *.o *.mod boxmodel.o rtoltest.o\
 	gckpp*.dat gckpp.exe rtoltest.exe gckpp*.mexglx \
-	gckpp.map generatetestdata.exe
+	gckpp.map *.exe
 
 distclean:
 	rm -f *.o *.mod \
@@ -163,7 +164,13 @@ gckpp_Jacobian.o: gckpp_Jacobian.F90  $(GENOBJ) gckpp_JacobianSP.o
 gckpp_LinearAlgebra.o: gckpp_LinearAlgebra.F90 $(GENOBJ) gckpp_JacobianSP.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Rates.o: gckpp_Rates.F90  $(GENOBJ) 
+rateLawUtilFuncs.o: rateLawUtilFuncs.F90
+	$(FC) $(FOPT) -c $<
+
+fullchem_RateLawFuncs.o: fullchem_RateLawFuncs.F90 rateLawUtilFuncs.o
+	$(FC) $(FOPT) -c $<
+
+gckpp_Rates.o: gckpp_Rates.F90  $(GENOBJ) fullchem_RateLawFuncs.o
 	$(FC) $(FOPT) -c $<
 
 gckpp_HessianSP.o: gckpp_HessianSP.F90  $(GENOBJ)
@@ -184,13 +191,13 @@ gckpp_Util.o: gckpp_Util.F90  $(GENOBJ) gckpp_Monitor.o
 gckpp_Main.o: gckpp_Main.F90  $(ALLOBJ) gckpp_Initialize.o gckpp_Model.o gckpp_Integrator.o
 	$(FC) $(FOPT) -c $<
 
-gckpp_Model.o: gckpp_Model.F90  $(ALLOBJ) gckpp_Integrator.o
+gckpp_Model.o: gckpp_Model.F90 $(ALLOBJ) gckpp_Integrator.o
 	$(FC) $(FOPT) -c $<
 
 gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-boxmodel.o: boxmodel.F90 $(ALLOBJ)
+boxmodel.o: boxmodel.F90 $(ALLOBJ) initialize.o
 	$(FC) $(FOPT) -c $<
 
 rtoltest.o: rtoltest.F90 predictions.o $(ALLOBJ)
@@ -199,10 +206,10 @@ rtoltest.o: rtoltest.F90 predictions.o $(ALLOBJ)
 generatetestdata.o: generatetestdata.F90 $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-setquants.o: setquants.F90 gckpp_Model.o $(ALLOBJ)
+setquants.o: setquants.F90 gckpp_Model.o
 	$(FC) $(FOPT) -c $<
 
-initialize.o: initialize.F90 gckpp_Parameters.o $(ALLOBJ)
+initialize.o: initialize.F90 gckpp_Parameters.o
 	$(FC) $(FOPT) -c $<
 
 predictions.o: predictions.F90 gckpp_Parameters.o $(ALLOBJ)

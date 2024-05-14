@@ -21,7 +21,7 @@ program main
   INTEGER                :: level
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
-  REAL(dp)               :: cosSZA
+  REAL(dp)               :: cosSZA, OperatorTimestep
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, start2, end
   REAL :: full_sumtime, comp_sumtime, compact_avg, full_avg, setup_time
@@ -55,13 +55,13 @@ program main
      write(testcsvunit,'(a)',advance='NO') ',d'//trim(spc_names(i))//'_dt'
   end do
   write(testcsvunit,'(a)') ''
-  open(newunit=unit, file='testlist_twilight.txt', status='old', action='read')
+  open(newunit=unit, file='testfiles.txt', status='old', action='read')
   read(unit, '(I10)', iostat=iostat) NFILES
   write(*,*) 'NFILES for testing: ', NFILES
   DO II = 1,NFILES
      ! Read the input
      read(unit, '(A)', iostat=iostat) filename
-     call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+     call read_input(filename, R, Cinit, SPC_NAMES, Hstart, cosSZA, level, fileTotSteps, OperatorTimestep)
      write(*,*) 'Reading '//trim(filename)//' to testdata.csv'
      write(testcsvunit,'(a,i3,a)',advance='NO') trim(filename)//',',fileTotSteps,','
      call dumptestdata()
@@ -99,7 +99,7 @@ CONTAINS
     ! Set ENV
     T    = 0d0
     TIN  = T
-    TOUT = T + 900._dp
+    TOUT = T + OperatorTimestep
     TEMP = 298.
 
     ! if (.not. init) write(*,*) 'Running the full mechanism'
@@ -112,7 +112,8 @@ CONTAINS
     C(1:NSPEC) = Cinit(1:NSPEC)
     VAR(1:NVAR) => C(1:NVAR)
     FIX(1:NFIX) => C(NVAR+1:NSPEC)
-    call Update_RCONST()
+    !call Update_RCONST()
+    RCONST = R
     CALL Fun( VAR, FIX, RCONST, Vloc )
     write(testcsvunit,'(*(G0.18,:,","))') Cinit, Vloc
     VAR => null()

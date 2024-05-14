@@ -22,6 +22,7 @@ program main
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
   REAL(dp)               :: cosSZA
+  REAL(dp)               :: OperatorTimestep
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, start2, end
   REAL :: full_sumtime, comp_sumtime, compact_avg, full_avg, setup_time
@@ -56,7 +57,7 @@ program main
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NRTOL iteration
   !  REINIT       = .false. ! Let C evolve over the NRTOL loop
-  NRTOL         = 25
+  NRTOL         = 50
   RELAX_RTOL_CASE = 0 ! if 0, no P/L species ! 1 tight tolerances for P/L species ! 2 20 species ATOL to concentration ! 3 higher RTOL across the board
   STOICMAT     = .false. ! Print biadjacency matrix of species reaction graph, spc and rxn list
 
@@ -122,16 +123,16 @@ program main
   ! Experiment 1: Run for one set of initial conditions
   !               and print end concentrations to file 
   ! Read the input file
-  open(newunit=unit, file='filelist_twilight.txt', status='old', action='read')
+  open(newunit=unit, file='trainfiles.txt', status='old', action='read')
   read(unit, '(I10)', iostat=iostat) NFILES
   write(*,*) 'NFILES: ', NFILES
-  DO II = 1,NFILES
+  DO II = 1,100!NFILES
      ! Read the input
      read(unit, '(A)', iostat=iostat) filename
-     call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+     call read_input( filename, R, Cinit, SPC_NAMES, Hstart, cosSZA, level, fileTotSteps, OperatorTimestep )
 
      ! Run the full mechanism
-     call fullmech(.false.,1,RTOL_VALUE=1e-2_dp)
+     call fullmech(.false.,1,RTOL_VALUE=0.5e-2_dp)
   ENDDO
 
   close(998)
@@ -171,7 +172,7 @@ CONTAINS
     ! Set ENV
     T    = 0d0
     TIN  = T
-    TOUT = T + 900._dp
+    TOUT = T + OperatorTimestep
     TEMP = 298.
 
     ! if (.not. init) write(*,*) 'Running the full mechanism'
@@ -184,12 +185,13 @@ CONTAINS
     ! --- INTEGRATION & TIMING LOOP
     ! Generate solution at tight tolerances
     C(1:NSPEC) = Cinit(1:NSPEC)
-    call Update_RCONST()
+!    call Update_RCONST()
+    RCONST = R
     CALL Integrate( TIN,    TOUT,    ICNTRL,      &
          RCNTRL, ISTATUS, RSTATE, IERR )
     Ctrue = C
     NSTEPSt = ISTATUS(3)
-    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
+!    write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
 
     ! Run the RTOL variation loop
     DO I=1,NRTOL
@@ -201,7 +203,8 @@ CONTAINS
        VAR(1:NVAR) => C(1:NVAR)
        FIX(1:NFIX) => C(NVAR+1:NSPEC)
        ! Set RCONST
-       call Update_RCONST()
+!       call Update_RCONST()
+       RCONST = R
 
        CALL Fun( C, FIX, RCONST, Vloc )
 
@@ -218,9 +221,9 @@ CONTAINS
        ! Dump result to file
        write(998,'(*(G0.18,:,","))',advance='NO') IERR, Cinit, C, Ctrue, &
             abs((C(ind_O3)-Ctrue(ind_O3))/Ctrue(ind_O3)),abs((C(ind_NO)-Ctrue(ind_NO))/Ctrue(ind_NO)), &
-            abs((C(ind_NO2)-Ctrue(ind_NO2))/Ctrue(ind_NO2)), Vloc, RTOL, NSTEPSt, ISTATUS(3), RSTATE(3)
+            abs((C(ind_NO2)-Ctrue(ind_NO2))/Ctrue(ind_NO2)), Vloc, RTOL, NSTEPSt, ISTATUS(3), RSTATE(2)
        write(998,'(a)') ','//trim(filename)
-       write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
+!       write(*,'(a,i5)') " Number of internal timesteps: ", ISTATUS(3)
 
        call cpu_time(end)
        full_sumtime = full_sumtime+end-start

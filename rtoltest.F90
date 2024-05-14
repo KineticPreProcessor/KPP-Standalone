@@ -8,7 +8,7 @@ program main
   USE INITIALIZE
   USE gckpp_StoichiomSP
   USE GCKPP_MODEL
-  USE SETQUANTS
+!  USE SETQUANTS
   USE PREDICTIONS
 
   IMPLICIT NONE
@@ -23,6 +23,7 @@ program main
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
   REAL(dp)               :: cosSZA
+  REAL(dp)               :: OperatorTimestep
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T, TIN, TOUT, start, start2, end
   REAL :: full_sumtime, comp_sumtime, compact_avg, full_avg, setup_time
@@ -52,15 +53,15 @@ program main
   ! Experiment 1: Run for one set of initial conditions
   !               and print end concentrations to file 
 
-  open(newunit=unit, file='testlist_twilight.txt', status='old', action='read')
+  open(newunit=unit, file='testfiles.txt', status='old', action='read')
   read(unit, '(I10)', iostat=iostat) NFILES
   write(*,*) 'NFILES for testing: ', NFILES
   call set_rtol_preds()
   DO II = 1,NFILES
      ! Read the input
      read(unit, '(A)', iostat=iostat) filename
-     write(*,*) 'Test file: ', trim(filename), ' ', trim(testfiles(II))
-     call read_input(filename, R, Cinit, Hstart, cosSZA, level, fileTotSteps)
+     write(*,*) 'Test file: ', trim(filename)!, ' ', trim(testfiles(II))
+     call read_input(filename, R, Cinit, SPC_NAMES, Hstart, cosSZA, level, fileTotSteps, OperatorTimestep)
      call fullmech(II)
   ENDDO
 
@@ -98,7 +99,7 @@ program main
     ! Set ENV
     T    = 0d0
     TIN  = T
-    TOUT = T + 900._dp
+    TOUT = T + OperatorTimestep
     TEMP = 298.
     
     ! if (.not. init) write(*,*) 'Running the full mechanism'
@@ -112,7 +113,7 @@ program main
     ! --- INTEGRATION & TIMING LOOP
     ! Generate solution at tight tolerances
     C(1:NSPEC) = Cinit(1:NSPEC)
-    call Update_RCONST()
+    RCONST = R
     CALL Integrate( TIN,    TOUT,    ICNTRL,      &
          RCNTRL, ISTATUS, RSTATE, IERR )
     Ctrue = C
@@ -128,37 +129,17 @@ program main
     VAR(1:NVAR) => C(1:NVAR)
     FIX(1:NFIX) => C(NVAR+1:NSPEC)
 
-    ! Set RTOL from predictor
-    call setRTOLandC()
-
     ! Set RCONST
-    call Update_RCONST()
-
+!    call Update_RCONST()
+    RCONST = R
+    
     ! Set the RTOL vals
-    RTOL(ind_I2O2) = RTOL_p(II,ind_I2O2)
-    RTOL(ind_I2O4) = RTOL_p(II,ind_I2O4)
-    RTOL(ind_IO) = RTOL_p(II,ind_IO)
-    RTOL(ind_O) = RTOL_p(II,ind_O)
-    RTOL(ind_HNO4) = RTOL_p(II,ind_HNO4)
-    RTOL(ind_OIO) = RTOL_p(II,ind_OIO)
-    RTOL(ind_Cl) = RTOL_p(II,ind_Cl)
-    RTOL(ind_ClOO) = RTOL_p(II,ind_ClOO)
-    RTOL(ind_I2O3) = RTOL_p(II,ind_I2O3)
-    RTOL(ind_HOBr) = RTOL_p(II,ind_HOBr)
-    RTOL(ind_HO2) = RTOL_p(II,ind_HO2)
-    RTOL(ind_OH) = RTOL_p(II,ind_OH)
-    RTOL(ind_I) = RTOL_p(II,ind_I)
-    RTOL(ind_Br) = RTOL_p(II,ind_Br)
-    RTOL(ind_CO2) = RTOL_p(II,ind_CO2)
-    RTOL(ind_ClO) = RTOL_p(II,ind_ClO)
-    RTOL(ind_IONO2) = RTOL_p(II,ind_IONO2)
-    RTOL(ind_N2O5) = RTOL_p(II,ind_N2O5)
-    RTOL(ind_IONO) = RTOL_p(II,ind_IONO)
-    RTOL(ind_OClO) = RTOL_p(II,ind_OClO)
+    RTOL = RTOL_p(II,:)
 
     ! Protect against negative tolerances. Not good!
     ! How to prevent this?
     where(RTOL <= 0.) RTOL = 0.5e-2
+    where(RTOL >= 1.) RTOL = 0.999
 
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RCNTRL(3) = Hstart
@@ -168,10 +149,12 @@ program main
     CALL Integrate( TIN,    TOUT,    ICNTRL,      &
          RCNTRL, ISTATUS, RSTATE, IERR )
 
-    write(*,*) 'NSTEPS: full', NSTEPSt, ' pred',ISTATUS(3)
-    write(*,*) C(ind_O3)
-    write(*,*) Ctrue(ind_O3)
-    write(*,*) 100*(C(ind_O3)-Ctrue(ind_O3))/Ctrue(ind_O3),"%"
+    write(*,*) 'NSTEPS: full', NSTEPSt, ' pred',ISTATUS(3), ' ', trim(filename)
+    write(*,*) 100*(C(ind_O3)-Ctrue(ind_O3))/Ctrue(ind_O3),"%",&
+         100*(C(ind_NO)-Ctrue(ind_NO))/Ctrue(ind_NO),"%",&
+         100*(C(ind_NO2)-Ctrue(ind_NO2))/Ctrue(ind_NO2),"%"
+    write(*,*) C(ind_O3), C(ind_NO), C(ind_NO2)
+    write(*,*) Ctrue(ind_O3), Ctrue(ind_NO), Ctrue(ind_NO2)
   
     call cpu_time(end)
     full_sumtime = full_sumtime+end-start

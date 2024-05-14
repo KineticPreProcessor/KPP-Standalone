@@ -22,3 +22,5 @@ images/*
 *.py
 *.txt
 *.csv
+freezer
+*\#

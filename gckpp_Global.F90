@@ -87,18 +87,8 @@ MODULE gckpp_Global
 
 ! INLINED global variable declarations
 
+#include "commonIncludeVars.H"
       REAL(kind=dp) :: R(NREACT)
-!>>      LOGICAL :: DO_JVS(LU_NONZERO)
-!>>      LOGICAL :: DO_SLV(NVAR+1)
-!>>      LOGICAL :: DO_FUN(NVAR)
-!>>      INTEGER :: cLU_IROW(LU_NONZERO)  ! Compacted ROW indexes
-!>>      INTEGER :: cLU_ICOL(LU_NONZERO)  ! Compacted COL indexes
-!>>      INTEGER :: cLU_CROW(NVAR+1)  ! Compacted compressed row vector
-!>>      INTEGER :: cLU_DIAG(NVAR+1)  ! Compacted DIAG indexes
-!>>      INTEGER :: JVS_MAP(LU_NONZERO)   ! Map to JVS from compacted sparse data
-!>>      INTEGER :: SPC_MAP(NVAR)   ! Map species (for Fun(), etc.)
-!>>      INTEGER :: rNVAR     ! Compacted number of variable species
-!>>      INTEGER :: cNONZERO  ! Compacted number of non-zero elements in cJVS
 
 ! INLINED global variable declarations
 
