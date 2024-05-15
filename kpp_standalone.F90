@@ -71,20 +71,26 @@ program main
       ! Get the first argument
       call get_command_argument(1, inputfile)
       print*, 'Processing sample: ', trim(inputfile)
-      else 
+   else 
       print*, 'No sample provided. Exiting.'
-      endif
+      stop
+   endif
       ! If a second argument is provided, use it as the output file
       if (command_argument_count() .ge. 2) then
       ! Get the second argument
       call get_command_argument(2, outputfile)
       print*, 'Output file: ', trim(outputfile)
-      endif
+   endif
   ENDIF ! Experiment 1
 
   ! -------------------------------------------------------------------------- !
   ! Experiment 2: Get species-resolved errors for expensive twilight cases
   IF (Experiment .eq. 2) THEN
+
+   if (command_argument_count() .ge. 1) then
+      print*, 'No arguments are allowed for Experiment 2. Exiting.'
+      stop
+   endif
    ! Open the list of files to be read
    open(newunit=unit, file='filelist_samples.txt', status='old', action='read')
    ! Open the file to write the species-resolved errors
