@@ -37,6 +37,10 @@ program main
   INTEGER                :: ISTATUS(20)
   INTEGER                :: fileTotSteps
   INTEGER                :: level
+  INTEGER                :: unit
+  INTEGER                :: iostat
+  INTEGER                :: filecount
+  INTEGER                :: Experiment
   REAL(dp)               :: OperatorTimestep
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
@@ -58,21 +62,57 @@ program main
   character(len=256) :: inputfile
   character(len=256) :: outputfile
 
+  Experiment = 2
 
-  ! Check if an argument was provided
-  if (command_argument_count() .ge. 1) then
-    ! Get the first argument
-    call get_command_argument(1, inputfile)
-    print*, 'Processing sample: ', trim(inputfile)
-   else 
-    print*, 'No sample provided. Exiting.'
-   endif
-   ! If a second argument is provided, use it as the output file
-   if (command_argument_count() .ge. 2) then
-     ! Get the second argument
-     call get_command_argument(2, outputfile)
-     print*, 'Output file: ', trim(outputfile)
-   endif
+  ! Experiment 1: Run a single provided case
+  IF (Experiment .eq. 1) THEN 
+   ! Check if an argument was provided
+   if (command_argument_count() .ge. 1) then
+      ! Get the first argument
+      call get_command_argument(1, inputfile)
+      print*, 'Processing sample: ', trim(inputfile)
+      else 
+      print*, 'No sample provided. Exiting.'
+      endif
+      ! If a second argument is provided, use it as the output file
+      if (command_argument_count() .ge. 2) then
+      ! Get the second argument
+      call get_command_argument(2, outputfile)
+      print*, 'Output file: ', trim(outputfile)
+      endif
+  ENDIF ! Experiment 1
+
+  ! -------------------------------------------------------------------------- !
+  ! Experiment 2: Get species-resolved errors for expensive twilight cases
+  IF (Experiment .eq. 2) THEN
+   ! Open the list of files to be read
+   open(newunit=unit, file='filelist_samples.txt', status='old', action='read')
+   ! Open the file to write the species-resolved errors
+   open(998,FILE='TwilightSpeciesErrors.csv')
+   write(998,'(a)',advance='NO') 'FileName,cosSZA,Level,NStp,Err,'//trim(spc_names(1))
+   do i=2,NVAR
+     write(998,'(a)',advance='NO') ','//trim(spc_names(i))
+   end do
+   write(998,'(a)') ''
+   filecount = 0
+   do ! Loop over the files in the list
+     read(unit, '(A)', iostat=iostat) inputfile
+     if (iostat /= 0) exit
+      call read_input(trim(inputfile), R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
+     ! Only focus on files with more than 10 internal timesteps and within the twilight zone
+     if ( fileTotSteps < 10 .or. (cosSZA < cos(98*3.14159/180)) .or. (cosSZA > cos(82*3.14159/180))) then
+         cycle
+     endif 
+     filecount = filecount + 1
+     write(*,*) 'Reading file: ', trim(inputfile)
+     write(*,*) 'file ', filecount
+     ! Run the full mechanism
+     write(998,'(a)',advance='NO') trim(inputfile)//','
+     write(998,'(e12.4,a,i2,a)',advance='NO') cosSZA,',',level,','
+     call fullmech(RTOL_VALUE=0.5e-2_dp)
+   enddo
+   close(998)
+ ENDIF
 
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NRTOL iteration
