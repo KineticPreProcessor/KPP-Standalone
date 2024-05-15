@@ -59,13 +59,14 @@ program main
   character(len=256) :: outputfile
 
 
-  ! Check if an argument was provided
-  if (command_argument_count() .ge. 1) then
-    ! Get the first argument
-    call get_command_argument(1, inputfile)
-    print*, 'Processing sample: ', trim(inputfile)
+   ! Check if an argument was provided
+   if (command_argument_count() .ge. 1) then
+     ! Get the first argument
+     call get_command_argument(1, inputfile)
+     print*, 'Processing sample: ', trim(inputfile)
    else 
     print*, 'No sample provided. Exiting.'
+    stop
    endif
    ! If a second argument is provided, use it as the output file
    if (command_argument_count() .ge. 2) then
