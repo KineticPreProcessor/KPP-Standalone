@@ -66,3 +66,9 @@ else:
 
     # plt.hist((df['Number of internal timesteps ( standalone)'] - df['Number of internal timesteps (from 3D run)']))
     # plt.xlabel('Difference in internal timesteps, Standalone to 3D')
+
+# write the list of validated files to a new text file
+with open('filelist_validated.txt', 'w') as f:
+    for file in files:
+        if "samples/"+file not in df['filename'].values:
+            f.write(file + '\n')
