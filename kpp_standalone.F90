@@ -92,7 +92,7 @@ program main
       stop
    endif
    ! Open the list of files to be read
-   open(newunit=unit, file='filelist_samples.txt', status='old', action='read')
+   open(newunit=unit, file='filelist_validated.txt', status='old', action='read')
    ! Open the file to write the species-resolved errors
    open(998,FILE='TwilightSpeciesErrors.csv')
    write(998,'(a)',advance='NO') 'FileName,cosSZA,Level,NStp,Err,'//trim(spc_names(1))
