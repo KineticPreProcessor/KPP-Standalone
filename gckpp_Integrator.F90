@@ -1794,7 +1794,7 @@ Stage: DO istage = 1, ros_S
         ELSE
           Scale = AbsTol(1)+RelTol(1)*Ymax
         END IF
-        ScaledErr(i) = (Yerr(i)/Scale)**2
+        ScaledErr(i) = ABS(Yerr(i)/Scale)
       END DO
   END SUBROUTINE ros_ScaledSpcError
 
