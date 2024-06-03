@@ -19,11 +19,11 @@ The Kinetic PreProcessor (KPP) files can be modified and the mechanism rebuilt w
 
   3. **Run the KPP Standalone**: Run the chemistry operator for a single grid cell and print the chemical output with command line arguments
 				 e.g. `./kpp_standalone.exe Beijing_L1_20200106_1345.txt output.txt`
- 				 or   `./kpp_standalone.exe samples/Beijing_L1_20200106_1345.txt Output_Beijing_L1_20200106_1345.txt`
+ 				 or   `./kpp_standalone.exe samples/Beijing_L1_20200106_1345.txt Output_Beijing_L1_20200106_1345.txt`.
  				 The output file argument is optional, and the standalone can be run without printing output
-     				 e.g. `./kpp_standalone.exe Beijing_L1_20200106_1345.txt`
+     				 e.g. `./kpp_standalone.exe Beijing_L1_20200106_1345.txt`.
 				 Batches of grid cells can be called in Python scripts `Verify_KPP_Standalone.py`
-				 Or by adjusting the code in kpp_standalone.F90, e.g. in the [twilight-zone](https://github.com/KineticPreProcessor/KPP-Standalone/tree/twilight-zone) branch
+				 or by adjusting the code in kpp_standalone.F90, e.g. in the [twilight-zone](https://github.com/KineticPreProcessor/KPP-Standalone/tree/twilight-zone) branch
   4. **Obtain realistic input files**: The [KPP Standalone Interface](https://github.com/GEOS-ESM/geos-chem/tree/feature/psturm/kpp_standalone_interface) module in GEOS-Chem can be used to sparsely sample chosen grid cells during 3D runs, to get the full chemical state for input to the standalone.
 
 ## User-modifiable KPP files (taken from KPP/fullchem -- folder for the default GEOS-Chem mechanism)
