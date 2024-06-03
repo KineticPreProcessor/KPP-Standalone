@@ -37,12 +37,6 @@ program main
   INTEGER                :: ISTATUS(20)
   INTEGER                :: fileTotSteps
   INTEGER                :: level
-  INTEGER                :: unit
-  INTEGER                :: iostat
-  INTEGER                :: filecount
-  INTEGER                :: Experiment
-  INTEGER                :: StepsSavedExp3
-  INTEGER                :: Exp3TotSteps
   REAL(dp)               :: OperatorTimestep
   REAL(dp)               :: RCNTRL(20)
   REAL(dp)               :: Hstart
@@ -64,100 +58,22 @@ program main
   character(len=256) :: inputfile
   character(len=256) :: outputfile
 
-  Experiment = 3
 
-  ! Experiment 1: Run a single provided case
-  IF (Experiment .eq. 1) THEN 
    ! Check if an argument was provided
    if (command_argument_count() .ge. 1) then
-      ! Get the first argument
-      call get_command_argument(1, inputfile)
-      print*, 'Processing sample: ', trim(inputfile)
+     ! Get the first argument
+     call get_command_argument(1, inputfile)
+     print*, 'Processing sample: ', trim(inputfile)
    else 
-      print*, 'No sample provided. Exiting.'
-      stop
+    print*, 'No sample provided. Exiting.'
+    stop
    endif
-      ! If a second argument is provided, use it as the output file
-      if (command_argument_count() .ge. 2) then
-      ! Get the second argument
-      call get_command_argument(2, outputfile)
-      print*, 'Output file: ', trim(outputfile)
+   ! If a second argument is provided, use it as the output file
+   if (command_argument_count() .ge. 2) then
+     ! Get the second argument
+     call get_command_argument(2, outputfile)
+     print*, 'Output file: ', trim(outputfile)
    endif
-  ENDIF ! Experiment 1
-
-  ! -------------------------------------------------------------------------- !
-  ! Experiment 2: Get species-resolved errors for expensive twilight cases
-  IF (Experiment .eq. 2) THEN
-
-   if (command_argument_count() .ge. 1) then
-      print*, 'No arguments are allowed for Experiment 2. Exiting.'
-      stop
-   endif
-   ! Open the list of files to be read
-   open(newunit=unit, file='filelist_validated_expensive_twilight.txt', status='old', action='read')
-   ! Open the file to write the species-resolved errors
-   open(998,FILE='TwilightSpeciesErrors.csv')
-   write(998,'(a)',advance='NO') 'FileName,cosSZA,Level,NStp,Err,'//trim(spc_names(1))
-   do i=2,NVAR
-     write(998,'(a)',advance='NO') ','//trim(spc_names(i))
-   end do
-   write(998,'(a)') ''
-   filecount = 0
-   do ! Loop over the files in the list
-     read(unit, '(A)', iostat=iostat) inputfile
-     if (iostat /= 0) exit
-      call read_input("samples/"//trim(inputfile), R, Cinit, SPC_NAMES, & 
-                      Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
-     ! Only focus on files with more than 10 internal timesteps and within the twilight zone
-     if ( fileTotSteps < 10 .or. (cosSZA < cos(98*3.14159/180)) .or. (cosSZA > cos(82*3.14159/180))) then
-         write(*,*) 'Skipping file: ', trim(inputfile)
-         cycle
-     endif 
-     filecount = filecount + 1
-     write(*,*) 'Reading file: ', trim(inputfile)
-     write(*,*) 'file ', filecount
-     ! Run the full mechanism
-     write(998,'(a)',advance='NO') trim(inputfile)//','
-     write(998,'(e12.4,a,i2,a)',advance='NO') cosSZA,',',level,','
-     call fullmech(RTOL_VALUE=0.5e-2_dp)
-   enddo
-   close(998)
- ENDIF
-
- ! -------------------------------------------------------------------------- !
- ! Experiment 3: Compare two runs with different tolerances
- IF (Experiment .eq. 3) THEN
-   StepsSavedExp3 = 0
-   Exp3TotSteps = 0
-   open(newunit=unit, file='filelist_validated_expensive_twilight.txt', status='old', action='read')
-   filecount = 0
-   do ! Loop over the files in the list
-     read(unit, '(A)', iostat=iostat) inputfile
-     if (iostat /= 0) exit
-     filecount = filecount + 1
-     write(*,*) 'Reading file: ', trim(inputfile)
-     write(*,*) 'file ', filecount
-     ! Read the input file
-     call read_input("samples/"//trim(inputfile), R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
-     ! Run the mechanism with strict tolerances
-     call fullmech(RTOL_VALUE=0.5e-2_dp)
-     StepsSavedExp3 = StepsSavedExp3 + ISTATUS(3)
-     Exp3TotSteps = Exp3TotSteps + ISTATUS(3)
-     ! Run the mechanism with loose tolerances
-     call fullmech(RTOL_VALUE=0.2_dp)
-     StepsSavedExp3 = StepsSavedExp3 - ISTATUS(3)
-     if (ISTATUS(3) > 70) then
-        write(*,*) "Warning: Negative steps saved"
-        StepsSavedExp3 = StepsSavedExp3 + ISTATUS(3)
-        stop
-     endif
-
-     write(*,*) "Total steps saved in Experiment 3: ", StepsSavedExp3, " out of ", Exp3TotSteps, &
-     " total steps, [", 100.*StepsSavedExp3/Exp3TotSteps, "%]"
-   enddo
- ENDIF
-
-
 
   OUTPUT       = .false.
   REINIT       = .true.  ! Reset C every NITR,NRTOL iteration
@@ -168,7 +84,7 @@ program main
 
 
   ! Read the input file
-  call read_input("samples/"//trim(inputfile), R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
+  call read_input(inputfile, R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
 
 
   
@@ -208,209 +124,7 @@ CONTAINS
     
     ! Tolerances
     ATOL      = 1e-2_dp
-    RTOL      = 0.5e-2_dp ! RTOL_VALUE ! default in GEOS-CF 2.0 is 0.5e-2_dp
-
-   ! P/L Tolerances very high
-    ATOL(ind_LBRO2H)    = 1e30_dp
-    ATOL(ind_LBRO2N)    = 1e30_dp
-    ATOL(ind_LCH4)      = 1e30_dp
-    ATOL(ind_LCO)       = 1e30_dp
-    ATOL(ind_LISOPNO3)  = 1e30_dp
-    ATOL(ind_LISOPOH)   = 1e30_dp
-    ATOL(ind_LNRO2H)    = 1e30_dp
-    ATOL(ind_LNRO2N)    = 1e30_dp
-    ATOL(ind_LOx)       = 1e30_dp
-    ATOL(ind_LTRO2H)    = 1e30_dp
-    ATOL(ind_LTRO2N)    = 1e30_dp
-    ATOL(ind_LXRO2H)    = 1e30_dp
-    ATOL(ind_LXRO2N)    = 1e30_dp
-    ATOL(ind_PCO)       = 1e30_dp
-    ATOL(ind_PH2O2)     = 1e30_dp
-    ATOL(ind_POx)       = 1e30_dp 
-    ATOL(ind_PSO4)      = 1e30_dp
-
-    ! Relax certain species RTOL?
-   !  RTOL(ind_INO) = RTOL_VALUE
-   !  RTOL(ind_I2) = RTOL_VALUE
-   !  RTOL(ind_OIO) = RTOL_VALUE
-   !  RTOL(ind_I2O2) = RTOL_VALUE
-   !  RTOL(ind_I2O4) = RTOL_VALUE
-   ! !  RTOL(ind_Br) = RTOL_VALUE
-   !  RTOL(ind_I2O3) = RTOL_VALUE
-   ! !  RTOL(ind_IONO) = RTOL_VALUE
-   !  RTOL(ind_I) = RTOL_VALUE
-   !  ! RTOL(ind_OH) = 0.8_dp
-   !  RTOL(ind_CO2) = RTOL_VALUE
-   !  RTOL(ind_OClO) = RTOL_VALUE
-   !  RTOL(ind_Cl) = RTOL_VALUE
-   !  RTOL(ind_BrNO2) = RTOL_VALUE
-   !  RTOL(ind_H) = RTOL_VALUE
-   !  RTOL(ind_NO3) = RTOL_VALUE
-   !  ! RTOL(ind_NO) = 0.8_dp
-   !  RTOL(ind_HOBr) = RTOL_VALUE
-   !  RTOL(ind_IO) = RTOL_VALUE
-   !  ! RTOL(ind_HO2) = 0.8_dp
-   !  ! Another 10
-   !  RTOL(ind_Br2) = RTOL_VALUE
-   !  RTOL(ind_BrSALA) = RTOL_VALUE
-   !  RTOL(ind_ICl) = RTOL_VALUE
-   !  RTOL(ind_MO2) = RTOL_VALUE
-   !  RTOL(ind_BrO) = RTOL_VALUE
-   !  RTOL(ind_ClOO) = RTOL_VALUE
-   !  RTOL(ind_HI) = RTOL_VALUE
-   !  RTOL(ind_Cl2O2) = RTOL_VALUE
-   !  RTOL(ind_R4N1) = RTOL_VALUE
-   !  RTOL(ind_IONO2) = RTOL_VALUE
-   ! End old problem species
-   ! Begin new problem species
-   !  RTOL(ind_Br) = RTOL_VALUE
-   !  RTOL(ind_INO) = RTOL_VALUE
-   !  RTOL(ind_I) = RTOL_VALUE
-   !  RTOL(ind_NO3) = RTOL_VALUE
-   !  ! RTOL(ind_OH) = RTOL_VALUE
-   !  RTOL(ind_BrO) = RTOL_VALUE
-   !  ! RTOL(ind_HO2) = RTOL_VALUE
-   !  RTOL(ind_Cl) = RTOL_VALUE
-   !  RTOL(ind_I2O2) = RTOL_VALUE
-   !  RTOL(ind_OIO) = RTOL_VALUE
-   !  RTOL(ind_MO2) = RTOL_VALUE
-   !  RTOL(ind_PH2SO4) = RTOL_VALUE
-   !  RTOL(ind_I2) = RTOL_VALUE
-   !  RTOL(ind_IONO) = RTOL_VALUE ! this one causes convergence issues
-   !  RTOL(ind_I2O3) = RTOL_VALUE
-   !  RTOL(ind_NO) = RTOL_VALUE
-   !  RTOL(ind_HOBr) = RTOL_VALUE
-   !  RTOL(ind_IO) = RTOL_VALUE
-   !  RTOL(ind_OClO) = RTOL_VALUE
-   !  RTOL(ind_BrNO2) = RTOL_VALUE
-   !  RTOL(ind_OTHRO2) = RTOL_VALUE
-   !  RTOL(ind_ClO) = RTOL_VALUE
-   !  RTOL(ind_B3O2) = RTOL_VALUE
-   !  RTOL(ind_IEPOXAOO) = RTOL_VALUE
-   !  RTOL(ind_ATO2) = RTOL_VALUE
-   !  RTOL(ind_HOI) = RTOL_VALUE
-   !  RTOL(ind_RCO3) = RTOL_VALUE
-   !  RTOL(ind_KO2) = RTOL_VALUE
-   !  RTOL(ind_IONO2) = RTOL_VALUE
-   !  RTOL(ind_MCO3) = RTOL_VALUE
-   !  RTOL(ind_IEPOXBOO) = RTOL_VALUE
-   !  RTOL(ind_A3O2) = RTOL_VALUE
-   !  RTOL(ind_NO2) = RTOL_VALUE
-   !  RTOL(ind_ClOO) = RTOL_VALUE
-   !  RTOL(ind_HBr) = RTOL_VALUE
-   !  RTOL(ind_N2O5) = RTOL_VALUE
-   !  RTOL(ind_I2O4) = RTOL_VALUE
-   !  RTOL(ind_R4O2) = RTOL_VALUE
-   !  RTOL(ind_MACRNO2) = RTOL_VALUE
-   !  RTOL(ind_BRO2) = RTOL_VALUE
-   !  RTOL(ind_O) = RTOL_VALUE
-   !  RTOL(ind_HNO4) = RTOL_VALUE
-   !  RTOL(ind_MPN) = RTOL_VALUE
-   !  RTOL(ind_IDHNBOO) = RTOL_VALUE
-   !  RTOL(ind_Br2) = RTOL_VALUE
-   !  RTOL(ind_ClNO3) = RTOL_VALUE
-   !  RTOL(ind_BrSALA) = RTOL_VALUE
-   !  RTOL(ind_INO2D) = RTOL_VALUE
-   !  RTOL(ind_AROMP4) = RTOL_VALUE
-   !  RTOL(ind_R4N1) = RTOL_VALUE
-
-   ! Iodine species only
-   RTOL(ind_IO) = RTOL_VALUE
-   RTOL(ind_INO) = RTOL_VALUE
-   RTOL(ind_OIO) = RTOL_VALUE
-   RTOL(ind_I) = RTOL_VALUE
-   RTOL(ind_I2) = RTOL_VALUE
-   RTOL(ind_I2O2) = RTOL_VALUE
-   RTOL(ind_IONO2) = RTOL_VALUE
-   RTOL(ind_I2O3) = RTOL_VALUE
-   RTOL(ind_I2O4) = RTOL_VALUE
-
-    ! Species norm
-   !  RTOL(ind_ICN) = RTOL_VALUE
-   !  RTOL(ind_INO2D) = RTOL_VALUE
-   !  RTOL(ind_BUTDI) = RTOL_VALUE
-   !  RTOL(ind_KO2) = RTOL_VALUE
-   !  RTOL(ind_H2O) = RTOL_VALUE
-   !  RTOL(ind_MONITU) = RTOL_VALUE
-   !  RTOL(ind_CO2) = RTOL_VALUE
-   !  RTOL(ind_CH2Br2) = RTOL_VALUE
-   !  RTOL(ind_ICNOO) = RTOL_VALUE
-   !  RTOL(ind_EOH) = RTOL_VALUE
-   !  RTOL(ind_BrCl) = RTOL_VALUE
-   !  RTOL(ind_ETNO3) = RTOL_VALUE
-   !  RTOL(ind_CH2O) = RTOL_VALUE
-   !  RTOL(ind_A3O2) = RTOL_VALUE
-   !  RTOL(ind_HI) = RTOL_VALUE
-   !  RTOL(ind_O3) = RTOL_VALUE
-   !  RTOL(ind_CH2OO) = RTOL_VALUE
-   !  RTOL(ind_CSL) = RTOL_VALUE
-   !  RTOL(ind_BENZO) = RTOL_VALUE
-   !  RTOL(ind_MTPA) = RTOL_VALUE
-   !  RTOL(ind_PIP) = RTOL_VALUE
-   !  RTOL(ind_OIO) = RTOL_VALUE
-   !  RTOL(ind_IHPNDOO) = RTOL_VALUE
-   !  RTOL(ind_INO2B) = RTOL_VALUE
-   !  RTOL(ind_AONITA) = RTOL_VALUE
-   !  RTOL(ind_R4P) = RTOL_VALUE
-   !  RTOL(ind_POx) = RTOL_VALUE
-   !  RTOL(ind_OLND) = RTOL_VALUE
-   !  RTOL(ind_IEPOXD) = RTOL_VALUE
-   !  RTOL(ind_MACR) = RTOL_VALUE
-
-    ! 
-RTOL(ind_Br) = RTOL_VALUE
-RTOL(ind_NO3) = RTOL_VALUE
-RTOL(ind_INO) = RTOL_VALUE
-RTOL(ind_HO2) = RTOL_VALUE
-RTOL(ind_I) = RTOL_VALUE
-RTOL(ind_OH) = RTOL_VALUE
-RTOL(ind_HOBr) = RTOL_VALUE
-RTOL(ind_Cl) = RTOL_VALUE
-RTOL(ind_I2O2) = RTOL_VALUE
-RTOL(ind_MO2) = RTOL_VALUE
-RTOL(ind_BrO) = RTOL_VALUE
-RTOL(ind_PH2SO4) = RTOL_VALUE
-RTOL(ind_OIO) = RTOL_VALUE
-RTOL(ind_BrNO2) = RTOL_VALUE
-! RTOL(ind_NO) = RTOL_VALUE
-RTOL(ind_IONO) = RTOL_VALUE
-RTOL(ind_HOI) = RTOL_VALUE
-RTOL(ind_I2O3) = RTOL_VALUE
-RTOL(ind_OTHRO2) = RTOL_VALUE
-RTOL(ind_OClO) = RTOL_VALUE
-RTOL(ind_H) = RTOL_VALUE
-RTOL(ind_Br2) = RTOL_VALUE
-RTOL(ind_O) = RTOL_VALUE
-RTOL(ind_B3O2) = RTOL_VALUE
-RTOL(ind_IONO2) = RTOL_VALUE
-RTOL(ind_IO) = RTOL_VALUE
-RTOL(ind_RCO3) = RTOL_VALUE
-! RTOL(ind_NO2) = RTOL_VALUE
-RTOL(ind_I2) = RTOL_VALUE
-RTOL(ind_ClOO) = RTOL_VALUE
-RTOL(ind_ClO) = RTOL_VALUE
-RTOL(ind_ATO2) = RTOL_VALUE
-RTOL(ind_A3O2) = RTOL_VALUE
-RTOL(ind_ALD2) = RTOL_VALUE
-RTOL(ind_MCO3) = RTOL_VALUE
-RTOL(ind_ICl) = RTOL_VALUE
-RTOL(ind_HNO2) = RTOL_VALUE
-RTOL(ind_BrCl) = RTOL_VALUE
-RTOL(ind_N2O5) = RTOL_VALUE
-RTOL(ind_HBr) = RTOL_VALUE
-RTOL(ind_MPN) = RTOL_VALUE
-RTOL(ind_I2O4) = RTOL_VALUE
-RTOL(ind_HNO4) = RTOL_VALUE
-RTOL(ind_ClNO3) = RTOL_VALUE
-RTOL(ind_BrNO3) = RTOL_VALUE
-RTOL(ind_Cl2O2) = RTOL_VALUE
-RTOL(ind_KO2) = RTOL_VALUE
-RTOL(ind_HI) = RTOL_VALUE
-RTOL(ind_RCHO) = RTOL_VALUE
-RTOL(ind_IEPOXAOO) = RTOL_VALUE
-
-
-
+    RTOL      = RTOL_VALUE ! default in GEOS-CF 2.0 is 0.5e-2_dp
 
     ! Set ENV
     T    = 0d0
