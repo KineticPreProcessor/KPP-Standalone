@@ -26,6 +26,16 @@ The Kinetic PreProcessor (KPP) files can be modified and the mechanism rebuilt w
 				 or by adjusting the code in kpp_standalone.F90, e.g. in the [twilight-zone](https://github.com/KineticPreProcessor/KPP-Standalone/tree/twilight-zone) branch
   4. **Obtain realistic input files**: The [KPP Standalone Interface](https://github.com/GEOS-ESM/geos-chem/tree/feature/psturm/kpp_standalone_interface) module in GEOS-Chem can be used to sparsely sample chosen grid cells during 3D runs, to get the full chemical state for input to the standalone.
 
+
+## User-modifiable KPP Standalone files
+
+This folder contains the files that define the full-chemistry mechanism (NOx-Ox-VOCs-Br-Cl-I) for GEOS-Chem.
+
+  1. **kpp_standalone.F90**: Driver for the KPP Standalone.
+
+  2. **kpp_standalone_init.F90**: Subroutine to read input generated using the KPP Standalone Interface in 3D runs.
+
+
 ## User-modifiable KPP files (taken from KPP/fullchem -- folder for the default GEOS-Chem mechanism)
 
 This folder contains the files that define the full-chemistry mechanism (NOx-Ox-VOCs-Br-Cl-I) for GEOS-Chem.
