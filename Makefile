@@ -183,8 +183,8 @@ gckpp_Integrator.o: gckpp_Integrator.F90  $(ALLOBJ)
 kpp_standalone_init.o: kpp_standalone_init.F90 gckpp_Parameters.o
 	$(FC) $(FOPT) -c $<
 
-# kpp_standalone.o: kpp_standalone.F90 kpp_standalone_init.o gckpp_Integrator.o $(ALLOBJ)
-# 	$(FC) $(FOPT) -c $<
+kpp_standalone.o: kpp_standalone.F90 kpp_standalone_init.o gckpp_Integrator.o $(ALLOBJ)
+	$(FC) $(FOPT) -c $<
 
 
 
