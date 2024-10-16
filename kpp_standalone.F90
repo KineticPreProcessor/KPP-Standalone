@@ -111,10 +111,13 @@ CONTAINS
     ! Set OPTIONS
     IERR      = 0                 ! Success or failure flag
     ISTATUS   = 0                 ! Rosenbrock output 
+    RSTATE    = 0.0_dp            ! Rosenbrock output
+
+    ! Read RCNTRL and ICNTRL from the log file
     RCNTRL    = 0.0_dp            ! Rosenbrock input
     RCNTRL(3) = Hstart
+
     ! write(*,'(a,f10.2)') " Hstart: ", Hstart
-    RSTATE    = 0.0_dp            ! Rosenbrock output
     ICNTRL    = 0
     ICNTRL(1) = 1
     ICNTRL(2) = 0.000_dp
@@ -194,7 +197,8 @@ CONTAINS
     character(len=256) :: outputfile
     character(len=256) :: inputfile
     character(len=256) :: header(30)
-    integer :: i
+    integer            :: i
+    integer            :: ierr
     character(len=256) :: line
 
     ! Write meteo data lines of the input to the output file
@@ -202,8 +206,8 @@ CONTAINS
     open(10, file=inputfile, status='old')
     
     ! Write the header lines to the output file
-    write(20, '(A)') "30"
-    write(20, '(A)') "==========================================================================="
+    write(20, '(A)') "43"
+    write(20, '(A)') REPEAT( "=", 79 )
     write(20, '(A)') ""
     write(20, '(A)') "KPP Standalone Output"
     write(20, '(A)') "This file contains the concentrations of all the chemical species"
@@ -215,22 +219,36 @@ CONTAINS
     write(20, '(A)') "https://github.com/KineticPreProcessor/KPP-Standalone"
     write(20, '(A)') ""
     write(20, '(A)') "Input file used: " // trim(inputfile)
+    write(20, '(A)')
 
-    ! Skip the first 26 lines of the input file
-    do i=1,26
-       read(10,'(A)') line
+    ! Skip until we get to the metadata section
+    do
+       read( 10, '(A)', iostat=ierr ) line
+       if ( ierr /= 0 ) exit
+       if ( index( line, 'Meteorological and general' ) > 0 ) then
+          write(20, '(A)') trim(line)
+          exit
+       endif
     enddo
-    do i=27,43
-       read(10,'(A)') line
-       write(20,'(A)') line
+
+    ! Copy the metadata from the input file to the output file
+    do
+       read( 10, '(A)', iostat=ierr ) line
+       if ( ierr /= 0 ) exit
+       if ( index( line, 'CSV data of full chemical state' ) > 0 ) exit
+       write( 20, '(A)' ) trim(line)
     enddo
+
+    ! Close input file
     close(10)
-    write(20, '(A)') ""
-    write(20, '(A)') "==========================================================================="
-    write(20, '(A)') "Species Name,Initial Concentration (molec/cc),Final Concentration (molec/cc)"
+
+    ! Write initial & final data to output file
+    write(20, '(A)') REPEAT( "=", 79 )
+    write(20, '(A)') "Species Name,Initial Concentration (molec/cm3),Final Concentration (molec/cm3)"
     ! write the species names, initial and final concentrations
     do i=1,NSPEC
-       write(20, '(A,E25.16,A,E25.16)') trim(SPC_NAMES(i))//",", Cinit(i), ",", C(i)
+       write(20, '(A,E25.16,A,E25.16)') &
+          trim(SPC_NAMES(i)) // ",", Cinit(i), ",", C(i)
     enddo
     close(20)
 
