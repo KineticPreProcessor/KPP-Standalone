@@ -1,33 +1,62 @@
 module kpp_standalone_init
+
   implicit none
   public
+
 contains
 
-subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA, level, fileTotSteps, OperatorTimestep)
-USE gckpp_Parameters
+subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA,     &
+                      level, fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL)
+  USE gckpp_Parameters
 
   IMPLICIT NONE
 
-  real(dp), intent(out) :: C(NSPEC)
-  real(dp), intent(out) :: R(NREACT)
-  real(dp), intent(out) :: Hstart
-  real(dp), intent(out) :: Hexit
-  real(dp), intent(out) :: cosSZA
-  real(dp), intent(out) :: OperatorTimestep
-  integer, intent(out)  :: level
-  integer, intent(out)  :: fileTotSteps
-  integer :: SPC_MAP(NSPEC)
+  ! Inputs
+  character(len=*), intent(in)  :: filename
+  character(len=*), intent(in)  :: SPC_NAMES(NSPEC)
 
+  ! Outputs
+  real(dp),         intent(out) :: C(NSPEC)
+  real(dp),         intent(out) :: R(NREACT)
+  real(dp),         intent(out) :: Hstart
+  real(dp),         intent(out) :: Hexit
+  real(dp),         intent(out) :: cosSZA
+  real(dp),         intent(out) :: OperatorTimestep
+  integer,          intent(out) :: level
+  integer,          intent(out) :: fileTotSteps
+  integer,          intent(out) :: ICNTRL(20)
+  real(dp),         intent(out) :: RCNTRL(20)
 
+  ! Local variables
+  integer                       :: SPC_MAP(NSPEC)
+  integer                       :: i, ierr, NHEADER, idx
+  integer                       :: file_unit
+  integer                       :: i1, i2
+  integer                       :: r1, r2
+  logical                       :: existbool
+  logical                       :: parse_icntrl
+  logical                       :: parse_rcntrl
+  character(len=255)            :: line
 
-  character(len=*), intent(in) :: SPC_NAMES(NSPEC)
-  character(len=*), intent(in) :: filename
-  integer :: i, ierr, NHEADER, idx
-  character(200) :: line
-  logical :: existbool
+  ! Initialize outputs for safety's sake
+  C                = 0.0_dp
+  cosSZA           = 0.0_dp
+  fileTotSteps     = 0
+  Hexit            = 0.0_dp
+  Hstart           = 0.0_dp
+  ICNTRL           = 0
+  level            = 0
+  OperatorTimestep = 0.0_dp
+  R                = 0.0_dp
+  RCNTRL           = 0.0_dp
 
-  ! Declare variables for file I/O
-  integer :: file_unit
+  ! For reading ICNTRL and RCNTRL
+  parse_icntrl     = .false.
+  parse_rcntrl     = .false.
+  i1               = 1
+  i2               = 10
+  r1               = 1
+  r2               = 5
 
   ! Open the file for reading
   file_unit = 999
@@ -49,67 +78,106 @@ USE gckpp_Parameters
   do i = 1, NHEADER
      read(file_unit, '(A)', iostat=ierr) line
      if (ierr /= 0)  then
-      print *, "Error reading line", i 
-      exit
+        print *, "Error reading line", i
+        exit
      end if
+
      ! Get level
      if (index(line, 'GEOS-Chem Vertical Level:') > 0 ) then
         idx = index(line, ':') + 1
         read(line(idx:), *) level
      endif
+
      ! Get cosSZA
      if (index(line, 'Cosine of solar zenith angle:') > 0 ) then
-      idx = index(line, ':') + 1
-      read(line(idx:), *) cosSZA
+        idx = index(line, ':') + 1
+        read(line(idx:), *) cosSZA
      end if
+
      ! get Hstart
      if (index(line, 'Init KPP Timestep (seconds):') > 0 ) then
-      idx = index(line, ':') + 1
-      read(line(idx:), *) Hstart
+        idx = index(line, ':') + 1
+        read(line(idx:), *) Hstart
      end if
 
      ! get Hexit
      if (index(line, 'Exit KPP Timestep (seconds):') > 0 ) then
-      idx = index(line, ':') + 1
-      read(line(idx:), *) Hexit
+        idx = index(line, ':') + 1
+        read(line(idx:), *) Hexit
      end if
 
      ! get fileTotSteps
      if (index(line, 'Number of internal timesteps:') > 0 ) then
-      idx = index(line, ':') + 1
-      read(line(idx:), *) fileTotSteps
+        idx = index(line, ':') + 1
+        read(line(idx:), *) fileTotSteps
      end if
 
      ! Get value of operator splitting timestep
-      if (index(line, 'Chemistry operator timestep (seconds):') > 0 ) then
+     if (index(line, 'Chemistry operator timestep (seconds):') > 0 ) then
         idx = index(line, ':') + 1
         read(line(idx:), *) OperatorTimestep
-      end if
+     end if
+
+     ! Get ICNTRL integrator options
+     ! Read 10 integer values (width=6) from the next 2 lines
+     if (index(line, 'ICNTRL integrator options used:') > 0 ) then
+        parse_icntrl = .true.
+        cycle
+     end if
+     if ( parse_icntrl ) then
+        read( line, '(10i6)' ) ICNTRL(i1:i2)
+        i1 = i1 + 10
+        i2 = i2 + 10
+        if ( i1 > 20 ) then
+           parse_icntrl = .false.
+           cycle
+        end if
+     end if
+
+     ! Get RCNTRL integrator options
+     ! Read 5 real values (width=13.6) from the next 2 lines
+     if (index(line, 'RCNTRL integrator options used:') > 0 ) then
+        parse_rcntrl = .true.
+        cycle
+     end if
+     if ( parse_rcntrl ) then
+        read( line, '(5F13.6)' ) RCNTRL(r1:r2)
+        r1 = r1 + 5
+        r2 = r2 + 5
+        if ( r1 > 20 ) then
+           parse_rcntrl = .false.
+           cycle
+        end if
+     end if
+
   end do
+
 
   ! Read the species and their concentrations
   do i = 1, NSPEC
      read(file_unit, '(A)', iostat=ierr) line
      if (ierr /= 0)  then
-      print *, "Error reading line", i+NHEADER 
-      exit
+        print *, "Error reading line", i+NHEADER
+        exit
      end if
      idx = index(line, ',') + 1
      read(line(idx:), *) C(i)
-    !  Check if the species name matches the expected SPC_NAMES(i)
-      if (trim(line(1:idx-2)) /= trim(SPC_NAMES(i))) then
-          print *, "Error: species name mismatch"
-          print *, "Expected: ", SPC_NAMES(i)
-          print *, "Found: ", line(1:idx-2)
-          stop
-      end if
+
+     ! Check if the species name matches the expected SPC_NAMES(i)
+     if (trim(line(1:idx-2)) /= trim(SPC_NAMES(i))) then
+        print *, "Error: species name mismatch"
+        print *, "Expected: ", SPC_NAMES(i)
+        print *, "Found: ", line(1:idx-2)
+        stop
+     end if
   end do
+
   ! Read the rate constants
   do i = 1, NREACT
      read(file_unit, '(A)', iostat=ierr) line
      if (ierr /= 0)  then
-      print *, "Error reading line", i+NSPEC+NHEADER 
-      exit
+        print *, "Error reading line", i+NSPEC+NHEADER
+        exit
      end if
      idx = index(line, ',') + 1
      read(line(idx:), *) R(i)
@@ -117,6 +185,7 @@ USE gckpp_Parameters
 
   ! Close the file
   close(file_unit)
+
 end subroutine read_input
 
 end module kpp_standalone_init
