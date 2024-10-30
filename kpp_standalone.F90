@@ -86,8 +86,10 @@ program main
   C            = 0.0_dp
 
   ! Read the input file
-  call read_input(inputfile, R, Cinit, SPC_NAMES, Hstart, Hexit, cosSZA, &
-                  level, fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL)
+  call read_input( inputfile,    R,                Cinit,  SPC_NAMES,        &
+                   Hstart,       Hexit,            cosSZA, level,            &
+                   fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL,           &
+                   ATOL                                                     )
 
   ! TODO: Pass RTOL from the commmand line
   ! Run the full mechanism
@@ -100,8 +102,9 @@ program main
 
 CONTAINS
 
-  ! TODO: Pass ATOL and RTOL as vectors
+  ! TODO: Pass RTOL as vector
   subroutine fullmech(RTOL_VALUE)
+
     USE GCKPP_INTEGRATOR
     USE GCKPP_RATES
     USE GCKPP_INITIALIZE
@@ -121,19 +124,22 @@ CONTAINS
     ! integration step size, so override the initial setting with this.
     RCNTRL(3)    = Hstart
 
-    ! TODO: Read per-species tolerances from the input file
-    ! so that we can ignore the P/L species
-    ! Tolerances
-    ATOL         = 1e-2_dp
-    RTOL         = RTOL_VALUE ! default in GEOS-CF 2.0 is 0.5e-2_dp
+    ! Absolute tolerance (ATOL):
+    ! Set to a default value if not defined in the input file.
+    WHERE( ATOL < 0.0_dp )
+       ATOL = 1.0e-2_dp
+    ENDWHERE
+
+    ! Relative tolerance (RTOL)
+    RTOL         = RTOL_VALUE
 
     ! Set ENV
     T            = 0.0_dp
     TIN          = T
     TOUT         = T + OperatorTimestep
 
-    ! Set concentrations (C) and rxn rates (RCONST) to
-    ! initial values read from the input file
+    ! Set initial concentrations (C) and reacton rates (RCONST)
+    ! to values read from the input file
     C            = Cinit
     RCONST       = R
 
@@ -144,23 +150,29 @@ CONTAINS
     end          = 0.0_dp
 
     ! Integrate the mechanism for an operator timestep
-    CALL Integrate( TIN,    TOUT,    ICNTRL,       &
-                    RCNTRL, ISTATUS, RSTATE, IERR )
-    NSTEPSt = ISTATUS(3)
-    write(*,'(a,i5)') " Number of internal timesteps (from 3D run): ", &
-         fileTotSteps
-    write(*,'(a,i5)') " Number of internal timesteps ( standalone): ", &
-         ISTATUS(3)
-    ! write Hexit for 3D vs standalone
-    write(*,'(a,f10.2)') " Hexit (from 3D run): ", Hexit
-    write(*,'(a,f10.2)') " Hexit ( standalone): ", RSTATE(2)
+    CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+
+    ! Write results
+    write( 6, 10 ) fileTotSteps
+ 10 format( " Number of internal timesteps (from 3D run): ", i5 )
+
+    write( 6, 11 ) ISTATUS(3)
+ 11 format( " Number of internal timesteps ( standalone): ", i5 )
+
+    write( 6, 12 ) Hexit
+ 12 format(  " Hexit (from 3D run): ", f10.2 )
+
+    write( 6, 13 ) RSTATE(2)
+ 13 format( " Hexit ( standalone): ", f10.2 )
 
     ! Check if 3D results are consistent with standalone
-    if (fileTotSteps /= ISTATUS(3)) then
-       write(0,*) "Warning: Number of internal steps do not match 3D grid cell"
+    if ( fileTotSteps /= ISTATUS(3) ) then
+       write( 6, 14 )
+ 14    format( "Warning: Number of internal steps do not match 3D grid cell" )
     endif
-    if (abs(Hexit-RSTATE(2))/Hexit>.001) then
-       write(0,*) "Warning: final timestep does not match 3D grid cell within 0.1%"
+    if ( abs( Hexit - RSTATE(2) ) / Hexit > 0.001_dp ) then
+       write( 6, 15 )
+ 15  format( "Warning: final timestep does not match 3D grid cell within 0.1%" )
     endif
 
     ! Run the RTOL variation loop
@@ -178,10 +190,10 @@ CONTAINS
        RTOL = 10**(-2.*RTOL)
 
        ! Integrate
-       CALL Integrate( TIN,    TOUT,    ICNTRL,       &
-                       RCNTRL, ISTATUS, RSTATE, IERR )
+       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
        call cpu_time(end)
-       write(*,*) "Number of internal timesteps random RTOL: ", ISTATUS(3)
+       write( 6, 16 ) ISTATUS(3)
+ 16    format( "Number of internal timesteps random RTOL: ", i5 )
 
        ! Free pointers
        VAR => NULL()
@@ -191,7 +203,7 @@ CONTAINS
  end subroutine fullmech
 
  subroutine write_output(inputfile, outputfile)
-    ! USE GCKPP_GLOBAL
+
     character(len=256) :: outputfile
     character(len=256) :: inputfile
     character(len=256) :: header(30)

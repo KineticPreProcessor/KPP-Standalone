@@ -5,31 +5,35 @@ module kpp_standalone_init
 
 contains
 
-subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA,     &
-                      level, fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL)
+subroutine read_input( filename,     R,                C,      SPC_NAMES,    &
+                       Hstart,       Hexit,            cosSZA, level,        &
+                       fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL,       &
+                       ATOL                                                 )
+
   USE gckpp_Parameters
 
   IMPLICIT NONE
 
   ! Inputs
-  character(len=*), intent(in)  :: filename
-  character(len=*), intent(in)  :: SPC_NAMES(NSPEC)
+  character(len=*), intent(in)  :: filename          ! Input file name
+  character(len=*), intent(in)  :: SPC_NAMES(NSPEC)  ! Chemical species names
 
   ! Outputs
-  real(dp),         intent(out) :: C(NSPEC)
-  real(dp),         intent(out) :: R(NREACT)
-  real(dp),         intent(out) :: Hstart
-  real(dp),         intent(out) :: Hexit
-  real(dp),         intent(out) :: cosSZA
-  real(dp),         intent(out) :: OperatorTimestep
-  integer,          intent(out) :: level
-  integer,          intent(out) :: fileTotSteps
-  integer,          intent(out) :: ICNTRL(20)
-  real(dp),         intent(out) :: RCNTRL(20)
+  real(dp),         intent(out) :: C(NSPEC)          ! Species conc (molec/cm3)
+  real(dp),         intent(out) :: R(NREACT)         ! Rates (molec/cm3/s)
+  real(dp),         intent(out) :: Hstart            ! Init KPP timestep (s)
+  real(dp),         intent(out) :: Hexit             ! Final KPP timestep (s)
+  real(dp),         intent(out) :: cosSZA            ! COS( solar zen angle )
+  real(dp),         intent(out) :: OperatorTimestep  ! External timestep
+  real(dp),         intent(out) :: RCNTRL(20)        ! Integrator options
+  real(dp),         intent(out) :: ATOL(NVAR)        ! Abs. tolerance
+  integer,          intent(out) :: level             ! Model level
+  integer,          intent(out) :: fileTotSteps      ! Total integration steps
+  integer,          intent(out) :: ICNTRL(20)        ! Integrator options
 
   ! Local variables
   integer                       :: SPC_MAP(NSPEC)
-  integer                       :: i, ierr, NHEADER, idx
+  integer                       :: i, ierr, NHEADER, idx, jdx
   integer                       :: file_unit
   integer                       :: i1, i2
   integer                       :: r1, r2
@@ -39,16 +43,17 @@ subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA,     &
   character(len=255)            :: line
 
   ! Initialize outputs for safety's sake
-  C                = 0.0_dp
-  cosSZA           = 0.0_dp
-  fileTotSteps     = 0
-  Hexit            = 0.0_dp
-  Hstart           = 0.0_dp
-  ICNTRL           = 0
-  level            = 0
-  OperatorTimestep = 0.0_dp
-  R                = 0.0_dp
-  RCNTRL           = 0.0_dp
+  ATOL             = -1.0_dp   ! Values not specified will get a default value
+  C                =  0.0_dp
+  cosSZA           =  0.0_dp
+  fileTotSteps     =  0
+  Hexit            =  0.0_dp
+  Hstart           =  0.0_dp
+  ICNTRL           =  0
+  level            =  0
+  OperatorTimestep =  0.0_dp
+  R                =  0.0_dp
+  RCNTRL           =  0.0_dp
 
   ! For reading ICNTRL and RCNTRL
   parse_icntrl     = .false.
@@ -160,8 +165,14 @@ subroutine read_input(filename, R, C, SPC_NAMES, Hstart, Hexit, cosSZA,     &
         print *, "Error reading line", i+NHEADER
         exit
      end if
-     idx = index(line, ',') + 1
-     read(line(idx:), *) C(i)
+
+     ! Read species concentration (molec/cm3)
+     idx = index( line, ',' ) + 1
+     read( line(idx:), * ) C(i)
+
+     ! If present, also read absolute tolerance
+     jdx = index( line(idx+1:), ',' ) + idx + 1
+     if ( jdx > idx + 1 )  read( line(jdx:), * ) ATOL(i)
 
      ! Check if the species name matches the expected SPC_NAMES(i)
      if (trim(line(1:idx-2)) /= trim(SPC_NAMES(i))) then
