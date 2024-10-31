@@ -55,6 +55,13 @@ subroutine read_input( filename,     R,                C,      SPC_NAMES,    &
   R                =  0.0_dp
   RCNTRL           =  0.0_dp
 
+  ! Set ICNTRL options to Rosenbrock inputs by default
+  ! These will be overwritten if ICNTRL is found in the input file
+  ICNTRL(1)        =  1
+  ICNTRL(3)        =  4
+  ICNTRL(7)        =  1
+  ICNTRL(15)       = -1
+
   ! For reading ICNTRL and RCNTRL
   parse_icntrl     = .false.
   parse_rcntrl     = .false.
