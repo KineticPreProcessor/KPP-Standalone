@@ -16,7 +16,6 @@
 *.ppk
 *.log
 bin/*
-gckpp.exe
 Figures
 Figure/*
 images
@@ -25,3 +24,4 @@ images/*
 #*.txt
 #*.py
 *.exe
+slurm*out
