@@ -186,7 +186,10 @@ kpp_standalone_init.o: kpp_standalone_init.F90 gckpp_Parameters.o
 kpp_standalone.o: kpp_standalone.F90 kpp_standalone_init.o gckpp_Integrator.o $(ALLOBJ)
 	$(FC) $(FOPT) -c $<
 
-
+# Check if the standalone model runs
+check:
+	rm -f kppsa.log
+	./kpp_standalone.exe Beijing_L1_20200106_1345.txt kppsa.log
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
