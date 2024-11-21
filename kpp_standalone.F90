@@ -34,7 +34,7 @@ program main
   IMPLICIT NONE
 
   ! Local variables
-  INTEGER                :: ICNTRL(20), IERR, I
+  INTEGER                :: ICNTRL(20),   IERR,         I
   INTEGER                :: ISTATUS(20)
   INTEGER                :: fileTotSteps
   INTEGER                :: level
@@ -44,17 +44,11 @@ program main
   REAL(dp)               :: Hexit
   REAL(dp)               :: cosSZA
   REAL(dp)               :: RSTATE(20)
-  REAL(dp)               :: T, TIN, TOUT, start, end
-
+  REAL(dp)               :: T,            TIN,          TOUT
+  REAL(dp)               :: start,        end
+  REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT)
   REAL                   :: full_sumtime, full_avg
-
-  ! Number of iterations in the timing averaging loop
-  INTEGER                :: NRTOL, NSTEPSt
-
-  REAL(dp)               :: Vloc(NVAR), Cinit(NSPEC), R(NREACT)
-
   LOGICAL                :: OUTPUT
-  LOGICAL                :: ReInit
 
   ! Vars for reading files
   character(len=256)     :: inputfile
@@ -79,9 +73,6 @@ program main
 
   ! Initialize
   OUTPUT       = .false.
-  REINIT       = .true.  ! Reset C every NITR,NRTOL iteration
- !REINIT       = .false. ! Let C evolve over the NRTOL loop
-  NRTOL        = 0
   RCONST       = 0.0_dp
   C            = 0.0_dp
 
@@ -174,31 +165,6 @@ CONTAINS
        write( 6, 15 )
  15  format( "Warning: final timestep does not match 3D grid cell within 0.1%" )
     endif
-
-    ! Run the RTOL variation loop
-    DO I=1,NRTOL
-       call Initialize()
-       C(1:NSPEC) = Cinit(1:NSPEC)
-
-       VAR(1:NVAR) => C(1:NVAR)
-       FIX(1:NFIX) => C(NVAR+1:NSPEC)
-
-       CALL Fun( C, FIX, RCONST, Vloc )
-
-       ! Get a random RTOL
-       CALL RANDOM_NUMBER(RTOL)
-       RTOL = 10**(-2.*RTOL)
-
-       ! Integrate
-       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
-       call cpu_time(end)
-       write( 6, 16 ) ISTATUS(3)
- 16    format( "Number of internal timesteps random RTOL: ", i5 )
-
-       ! Free pointers
-       VAR => NULL()
-       FIX => NULL()
-    ENDDO
 
  end subroutine fullmech
 
