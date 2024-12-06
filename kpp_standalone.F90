@@ -223,7 +223,7 @@ CONTAINS
     write(20, '(A)') "Species Name,Initial Concentration (molec/cm3),Final Concentration (molec/cm3)"
     ! write the species names, initial and final concentrations
     do i=1,NSPEC
-       write(20, '(A,E25.16,A,E25.16)') &
+       write(20, '(A, ES25.16E3, A, ES25.16E3)') &
           trim(SPC_NAMES(i)) // ",", Cinit(i), ",", C(i)
     enddo
     close(20)
