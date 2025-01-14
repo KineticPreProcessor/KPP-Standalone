@@ -34,7 +34,7 @@ program main
   IMPLICIT NONE
 
   ! Local variables
-  INTEGER                :: ICNTRL(20),   IERR,         I
+  INTEGER                :: ICNTRL(20),   IERR,         I, J, K, II, JJ, KK
   INTEGER                :: ISTATUS(20)
   INTEGER                :: fileTotSteps
   INTEGER                :: level
@@ -45,7 +45,7 @@ program main
   REAL(dp)               :: cosSZA
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T,            TIN,          TOUT
-  REAL(dp)               :: start,        end
+  REAL(dp)               :: start,        finish
   REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT)
   REAL                   :: full_sumtime, full_avg
   LOGICAL                :: OUTPUT
@@ -106,42 +106,66 @@ CONTAINS
     ! Inputs
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
 
-    ! Initializze
-    IERR         = 0
-    ISTATUS      = 0
-    RSTATE       = 0.0_dp
+    open(998,file='test.txt')
+    II = 5
+    JJ = 400
+    KK = 400
+    DO I=1,II
+       DO J = 1,JJ
+          DO K = 1,KK
+          ! Initializze
+             IERR         = 0
+             ISTATUS      = 0
+             RSTATE       = 0.0_dp
 
-    ! For most integrators, RCNTRL(3) is the starting value of the
-    ! integration step size, so override the initial setting with this.
-    RCNTRL(3)    = Hstart
+             ! For most integrators, RCNTRL(3) is the starting value of the
+             ! integration step size, so override the initial setting with this.
+             RCNTRL(3)    = Hstart
 
-    ! Absolute tolerance (ATOL):
-    ! Set to a default value if not defined in the input file.
-    WHERE( ATOL < 0.0_dp )
-       ATOL = 1.0e-2_dp
-    ENDWHERE
+             ! Absolute tolerance (ATOL):
+             ! Set to a default value if not defined in the input file.
+             WHERE( ATOL < 0.0_dp )
+                ATOL = 1.0e-2_dp
+             ENDWHERE
 
-    ! Relative tolerance (RTOL)
-    RTOL         = RTOL_VALUE
+             ! Relative tolerance (RTOL)
+             RTOL         = RTOL_VALUE
 
-    ! Set ENV
-    T            = 0.0_dp
-    TIN          = T
-    TOUT         = T + OperatorTimestep
+             ! Set ENV
+             T            = 0.0_dp
+             TIN          = T
+             TOUT         = T + OperatorTimestep
 
-    ! Set initial concentrations (C) and reacton rates (RCONST)
-    ! to values read from the input file
-    C            = Cinit
-    RCONST       = R
+             ! Set initial concentrations (C) and reacton rates (RCONST)
+             ! to values read from the input file
+             C            = Cinit
+             RCONST       = R
 
-    ! Initialize timings
-    full_avg     = 0.0
-    full_sumtime = 0.0
-    start        = 0.0_dp
-    end          = 0.0_dp
+             ! Initialize timings
+             full_avg     = 0.0
+             full_sumtime = 0.0
+             start        = 0.0_dp
+             finish       = 0.0_dp
 
-    ! Integrate the mechanism for an operator timestep
-    CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+             ICNTRL(3) = -1
+             RCNTRL(17) = 0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
+             RCNTRL(18) = 0._dp    ! alpha_21
+             RCNTRL(19) = -2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
+             RCNTRL(20) = -2._dp+(k-1)*0.01_dp ! b2
+
+             ICNTRL(4)  = 70
+
+             ! Integrate the mechanism for an operator timestep
+             CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+
+!             write(6,*) i,': ',RCNTRL(17), RCNTRL(19), RCNTRL(20), ISTATUS(3), RSTATE(20)
+             write(998,*) i,',',j,',',k,',', &
+                  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20)
+          ENDDO
+       ENDDO
+    ENDDO
+    close(998)
 
     ! Write results
     write( 6, 10 ) fileTotSteps

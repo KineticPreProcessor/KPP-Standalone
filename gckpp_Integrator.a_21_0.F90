@@ -2481,8 +2481,8 @@ Stage: DO istage = 1, ros_S
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   SUBROUTINE RodasExt(gamma, alpha_21, gamma_31, b2)
-    REAL(kind=dp) ALPHA(4,4), GAM(4,4), GAMinv(4,4), BETA_ij(4,4), A_ij(4,4)
-    REAL(kind=dp) M(4), M_(4), B(4), BETA(4), G(4), A(4)
+    REAL*8 ALPHA(4,4), GAM(4,4), GAMinv(4,4), BETA_ij(4,4), A_ij(4,4)
+    REAL*8 M(4), M_(4), B(4), BETA(4), G(4), A(4)
     integer i, ok
     real(kind=dp) :: gamma
     real(kind=dp) :: alpha_21
@@ -2550,11 +2550,11 @@ Stage: DO istage = 1, ros_S
     ros_Name     = 'RODAS-External'
     ros_S        = 4
 
-    ros_A(1)     = A_ij(2,1)
+    ros_A(1)     = 0._dp !A_ij(2,1)
     ros_A(2)     = A_ij(3,1)
-    ros_A(3)     = A_ij(3,2)
+    ros_A(3)     = 0._dp !A_ij(3,2)
     ros_A(4)     = A_ij(4,1)
-    ros_A(5)     = A_ij(4,2)
+    ros_A(5)     = 0._dp !A_ij(4,2)
     ros_A(6)     = A_ij(4,3)
 
 !    write(*,*) 'ros_A(1) = ', ros_A(1)
@@ -2579,8 +2579,7 @@ Stage: DO istage = 1, ros_S
 !    write(*,*) 'ros_C(6) = ',ros_C(6)
 
     ros_NewF(1)  = .TRUE.
-    if (alpha_21 .ne. 0._dp)    ros_NewF(2)  = .TRUE.
-    if (alpha_21 .eq. 0._dp)    ros_NewF(2)  = .FALSE.
+    ros_NewF(2)  = .FALSE.
     ros_NewF(3)  = .TRUE.
     ros_NewF(4)  = .TRUE.
 
@@ -2623,167 +2622,6 @@ Stage: DO istage = 1, ros_S
 !    write(*,*) 'ros_Gamma(4)=',ros_Gamma(4)
 
   END SUBROUTINE RodasExt
-
-  SUBROUTINE Ros3Ext(b2)
-    REAL(kind=dp) ALPHA(3,3), GAM(3,3), A_ij(3,3), FK(3,3), FKi(3)
-    REAL(kind=dp) GAMinv(3,3)
-    REAL(kind=dp) M(3), M_(3), B(3), B_hat(3), BETA(3), G(3), A(3)
-    REAL(kind=dp) a_, b_, c_
-    integer i, ok, IFK(3,3)
-    real(kind=dp) :: gamma
-    !    real(kind=dp) :: alpha_21
-    !    real(kind=dp) :: gamma_31
-    real(kind=dp) :: b2
-    real(kind=dp) :: onesixth = 0.166666666666667_dp
-
-!    b2    = 1.9410040761964420292840123379419_dp
-    gamma = 0.43586652150845899941601945119356_dp
-
-    ALPHA   = 0._dp
-    GAM     = 0._dp
-
-    B(1) = 1._dp - (1._dp/(3._dp*gamma**2))
-    B(2) = b2
-    B(3) = (1._dp/(3._dp*gamma**2)) - b2
-
-    ALPHA(2,1) = gamma
-    ALPHA(3,1) = gamma
-    ALPHA(3,2) = 0._dp
-
-    GAM(1,1) = gamma
-    GAM(2,2) = gamma
-    GAM(3,3) = gamma
-    !---
-    a_ = -B(3)
-    b_ = (0.5_dp-gamma)-(B(3)*gamma)
-    c_ = -(B(2)*(onesixth-gamma+gamma**2))/B(3)
-    !---
-    GAM(3,1) = 0._dp
-    GAM(3,2) = QUAD(a_,b_,c_,1)
-    GAM(2,1) = (0.5_dp-gamma-(1._dp/(3._dp*gamma))-B(3)*GAM(3,2))/B(2)
-
-    write(*,*) 'GAM_31 = ', GAM(3,1)
-    write(*,*) 'GAM_32 = ', GAM(3,2), a_, b_, c_
-    write(*,*) 'GAM_21 = ', GAM(2,1)
-
-    ! Start the operations here
-    GAMinv = GAM
-    call DTRTRI('L','N',3,GAMinv,3,ok)
-
-    GAMinv = GAMinv
-    DO i=1,3
-       write(*,*) 'GAMinv', GAMinv(i,:), ok
-    ENDDO
-
-    ! Compute M & M_
-    call DGEMV('T',3,3,1._dp,GAMinv,3,B,1,0._dp,M,1)
-
-    ros_E(1) =  0.5_dp
-
-    FK(1,:) = 1._dp
-    FK(2,1) = GAMinv(1,1)
-    FK(2,2) = GAMinv(2,1)
-    FK(2,3) = GAMinv(3,1)
-    FK(3,1) = 0._dp
-    FK(3,2) = ALPHA(2,1) + GAM(2,1)
-    FK(3,3) = ALPHA(3,1) + GAM(3,2)
-
-    call DGETRF(3,3,FK,3,IFK,ok)
-    call DGETRI(3,FK,3,IFK,FKi,3,ok)
-
-    FKi = (/1._dp,ros_E(1),0.5_dp-gamma/)
-    call DGEMV('N',3,3,1._dp,FK,3,FKi,1,0._dp,B_hat,1)
-    call DGEMV('T',3,3,1._dp,GAMinv,3,B_hat,1,0._dp,M_,1)
-
-    ros_E(1:3) = M-M_
-
-    !  M_(1) = ros_E(1)*GAM(1,1)+ros_E(2)*GAM(2,1)+ros_E(3)*GAM(3,1)
-    !  M_(2) = ros_E(1)*GAM(1,2)+ros_E(2)*GAM(2,2)+ros_E(3)*GAM(3,2)
-    !  M_(3) = ros_E(1)*GAM(1,3)+ros_E(2)*GAM(2,3)+ros_E(3)*GAM(3,3)
-    !
-    !  B_hat = B-M_
-    !
-    !  write(*,*) 'B_hat(1)=', B(1), B_hat(1), M_(1)
-    !  write(*,*) 'B_hat(2)=', B(2), B_hat(2), M_(2)
-    !  write(*,*) 'B_hat(3)=', B(3), B_hat(3), M_(3)
-    !  write(*,*) 'sums     ', sum(B), sum(B_hat), M(1)
-
-    ! Compute A
-    call DGEMM('N','N',3,3,3,1._dp,ALPHA,3,GAMinv,3,0._dp,A_ij,3)
-
-    ros_A(1)     = A_ij(2,1)
-    ros_A(2)     = A_ij(3,1)
-    ros_A(3)     = A_ij(3,2)
-
-    write(*,*) 'ros_A(1) = ', ros_A(1)
-    write(*,*) 'ros_A(2) = ', ros_A(2)
-    write(*,*) 'ros_A(3) = ', ros_A(3)
-
-    ros_C(1)     = -GAMinv(2,1)
-    ros_C(2)     = -GAMinv(3,1)
-    ros_C(3)     = -GAMinv(3,2)
-
-    write(*,*) 'ros_C(1) = ',ros_C(1)
-    write(*,*) 'ros_C(2) = ',ros_C(2)
-    write(*,*) 'ros_C(3) = ',ros_C(3)
-
-    ros_NewF(1)  = .TRUE.
-
-    ros_M(1:3)   = M
-
-    !  write(*,*) 'B(1)=', B(1)
-    !  write(*,*) 'B(2)=', B(2)
-    !  write(*,*) 'B(3)=', B(3)
-    write(*,*) 'ros_M(1)=',ros_M(1)
-    write(*,*) 'ros_M(2)=',ros_M(2)
-    write(*,*) 'ros_M(3)=',ros_M(3)
-
-    write(*,*) 'ros_E(1)=',ros_E(1)
-    write(*,*) 'ros_E(2)=',ros_E(2)
-    write(*,*) 'ros_E(3)=',ros_E(3)
-
-    ros_ELO      = 3.0_dp
-
-    write(*,*) 'ros_ELO=',ros_ELO
-
-    ros_NewF(1)  = .TRUE.
-    ros_NewF(2)  = .TRUE.
-    ros_NewF(3)  = .FALSE.
-
-    ros_Alpha(1) = 0._dp
-    ros_Alpha(2) = alpha(2,1)
-    ros_Alpha(3) = alpha(3,1)+alpha(3,2)
-
-    write(*,*) 'ros_Alpha(1)=',ros_Alpha(1)
-    write(*,*) 'ros_Alpha(2)=',ros_Alpha(2)
-    write(*,*) 'ros_Alpha(3)=',ros_Alpha(3)
-
-    ros_Gamma(1) = GAM(1,1)
-    ros_Gamma(2) = GAM(2,1)+GAM(2,2)
-    ros_Gamma(3) = GAM(3,1)+GAM(3,2)+GAM(3,3)
-
-    write(*,*) 'ros_Gamma(1)=',ros_Gamma(1)
-    write(*,*) 'ros_Gamma(2)=',ros_Gamma(2)
-    write(*,*) 'ros_Gamma(3)=',ros_Gamma(3)
-
-  CONTAINS
-    REAL(kind=dp) FUNCTION QUAD(a,b,c,root)
-      real(kind=dp) a,b,c,discrim
-      integer root ! first or second (1 or 2)
-
-      QUAD = -999.e9
-      discrim = b**2-4._dp*a*c
-      write(*,*) 'Root: ', root, discrim
-      if ( discrim .gt. 0. ) then
-         if (root .eq. 1) QUAD = (-b+sqrt(discrim))/(2._dp*a)
-         if (root .eq. 2) QUAD = (-b-sqrt(discrim))/(2._dp*a)
-      endif
-      if ( discrim .eq. 0._dp ) then
-         QUAD = - b / (2._dp * a)
-      endif
-      return
-    END FUNCTION QUAD
-  END SUBROUTINE Ros3Ext
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !   End of the set of internal Rosenbrock subroutines

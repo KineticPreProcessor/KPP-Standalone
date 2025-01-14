@@ -6,10 +6,12 @@ import os
 import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
+import pathlib
 
 # 1) Read all the files in a samples local directory
 sample_dir = 'samples'  # replace with your directory path
-standalone_dir = '/Users/psturm/Desktop/Twilight_KPP/KPP-Standalone'
+standalone_dir = pathlib.Path().resolve()
+#'/Users/psturm/Desktop/Twilight_KPP/KPP-Standalone'
 files = os.listdir(sample_dir)
 
 # Create a pandas dataframe to store the warning files
