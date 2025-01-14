@@ -356,6 +356,8 @@ SUBROUTINE Rosenbrock(N,Y,Tstart,Tend, &
 
 !~~~>   Initialize the particular Rosenbrock method selected
    SELECT CASE (ICNTRL(3))
+     CASE (-2)
+        CALL Ros3Ext(RCNTRL(17),RCNTRL(18),RCNTRL(19))
      CASE (-1)
         CALL RodasExt(RCNTRL(17),RCNTRL(18),RCNTRL(19),RCNTRL(20))
      CASE (1)
@@ -2624,7 +2626,7 @@ Stage: DO istage = 1, ros_S
 
   END SUBROUTINE RodasExt
 
-  SUBROUTINE Ros3Ext(b2)
+  SUBROUTINE Ros3Ext(b2,root,ros_E_1)
     REAL(kind=dp) ALPHA(3,3), GAM(3,3), A_ij(3,3), FK(3,3), FKi(3)
     REAL(kind=dp) GAMinv(3,3)
     REAL(kind=dp) M(3), M_(3), B(3), B_hat(3), BETA(3), G(3), A(3)
@@ -2633,7 +2635,7 @@ Stage: DO istage = 1, ros_S
     real(kind=dp) :: gamma
     !    real(kind=dp) :: alpha_21
     !    real(kind=dp) :: gamma_31
-    real(kind=dp) :: b2
+    real(kind=dp) :: b2, root, ros_E_1
     real(kind=dp) :: onesixth = 0.166666666666667_dp
 
 !    b2    = 1.9410040761964420292840123379419_dp
@@ -2657,28 +2659,29 @@ Stage: DO istage = 1, ros_S
     a_ = -B(3)
     b_ = (0.5_dp-gamma)-(B(3)*gamma)
     c_ = -(B(2)*(onesixth-gamma+gamma**2))/B(3)
+    if (root .gt. 2. .or. root .lt. 1.) root = 1.
     !---
     GAM(3,1) = 0._dp
-    GAM(3,2) = QUAD(a_,b_,c_,1)
+    GAM(3,2) = QUAD(a_,b_,c_,int(root))
     GAM(2,1) = (0.5_dp-gamma-(1._dp/(3._dp*gamma))-B(3)*GAM(3,2))/B(2)
 
-    write(*,*) 'GAM_31 = ', GAM(3,1)
-    write(*,*) 'GAM_32 = ', GAM(3,2), a_, b_, c_
-    write(*,*) 'GAM_21 = ', GAM(2,1)
+!    write(*,*) 'GAM_31 = ', GAM(3,1)
+!    write(*,*) 'GAM_32 = ', GAM(3,2), a_, b_, c_
+!    write(*,*) 'GAM_21 = ', GAM(2,1)
 
     ! Start the operations here
     GAMinv = GAM
     call DTRTRI('L','N',3,GAMinv,3,ok)
 
     GAMinv = GAMinv
-    DO i=1,3
-       write(*,*) 'GAMinv', GAMinv(i,:), ok
-    ENDDO
+!    DO i=1,3
+!       write(*,*) 'GAMinv', GAMinv(i,:), ok
+!    ENDDO
 
     ! Compute M & M_
     call DGEMV('T',3,3,1._dp,GAMinv,3,B,1,0._dp,M,1)
 
-    ros_E(1) =  0.5_dp
+    ros_E(1) =  1._dp-ros_E_1
 
     FK(1,:) = 1._dp
     FK(2,1) = GAMinv(1,1)
@@ -2703,13 +2706,18 @@ Stage: DO istage = 1, ros_S
     !
     !  B_hat = B-M_
     !
-    !  write(*,*) 'B_hat(1)=', B(1), B_hat(1), M_(1)
-    !  write(*,*) 'B_hat(2)=', B(2), B_hat(2), M_(2)
-    !  write(*,*) 'B_hat(3)=', B(3), B_hat(3), M_(3)
-    !  write(*,*) 'sums     ', sum(B), sum(B_hat), M(1)
+      write(*,*) 'B,B_hat(1)=', B(1), B_hat(1), M_(1)
+      write(*,*) 'B,B_hat(2)=', B(2), B_hat(2), M_(2)
+      write(*,*) 'B,B_hat(3)=', B(3), B_hat(3), M_(3)
+      write(*,*) 'sums     ', sum(B), sum(B_hat), M(1)
 
     ! Compute A
     call DGEMM('N','N',3,3,3,1._dp,ALPHA,3,GAMinv,3,0._dp,A_ij,3)
+
+! Set Rosenbrock params
+    rosMethod    = RS3
+    ros_Name     = 'ROS3-External'
+    ros_S        = 3
 
     ros_A(1)     = A_ij(2,1)
     ros_A(2)     = A_ij(3,1)
@@ -2766,24 +2774,24 @@ Stage: DO istage = 1, ros_S
     write(*,*) 'ros_Gamma(2)=',ros_Gamma(2)
     write(*,*) 'ros_Gamma(3)=',ros_Gamma(3)
 
-  CONTAINS
-    REAL(kind=dp) FUNCTION QUAD(a,b,c,root)
-      real(kind=dp) a,b,c,discrim
-      integer root ! first or second (1 or 2)
-
-      QUAD = -999.e9
-      discrim = b**2-4._dp*a*c
-      write(*,*) 'Root: ', root, discrim
-      if ( discrim .gt. 0. ) then
-         if (root .eq. 1) QUAD = (-b+sqrt(discrim))/(2._dp*a)
-         if (root .eq. 2) QUAD = (-b-sqrt(discrim))/(2._dp*a)
-      endif
-      if ( discrim .eq. 0._dp ) then
-         QUAD = - b / (2._dp * a)
-      endif
-      return
-    END FUNCTION QUAD
   END SUBROUTINE Ros3Ext
+  
+  REAL(kind=dp) FUNCTION QUAD(a,b,c,root)
+    real(kind=dp) a,b,c,discrim
+    integer root ! first or second (1 or 2)
+
+    QUAD = -999.e9
+    discrim = b**2-4._dp*a*c
+    write(*,*) 'Root: ', root, discrim
+    if ( discrim .gt. 0. ) then
+       if (root .eq. 1) QUAD = (-b+sqrt(discrim))/(2._dp*a)
+       if (root .eq. 2) QUAD = (-b-sqrt(discrim))/(2._dp*a)
+    endif
+    if ( discrim .eq. 0._dp ) then
+       QUAD = - b / (2._dp * a)
+    endif
+    return
+  END FUNCTION QUAD
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !   End of the set of internal Rosenbrock subroutines

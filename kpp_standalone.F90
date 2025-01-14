@@ -107,9 +107,9 @@ CONTAINS
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
 
     open(998,file='test.txt')
-    II = 5
-    JJ = 400
-    KK = 400
+    II = 1!00
+    JJ = 1!00
+    KK = 1!400
     DO I=1,II
        DO J = 1,JJ
           DO K = 1,KK
@@ -124,9 +124,9 @@ CONTAINS
 
              ! Absolute tolerance (ATOL):
              ! Set to a default value if not defined in the input file.
-             WHERE( ATOL < 0.0_dp )
+!             WHERE( ATOL < 0.0_dp )
                 ATOL = 1.0e-2_dp
-             ENDWHERE
+!             ENDWHERE
 
              ! Relative tolerance (RTOL)
              RTOL         = RTOL_VALUE
@@ -147,13 +147,23 @@ CONTAINS
              start        = 0.0_dp
              finish       = 0.0_dp
 
-             ICNTRL(3) = -1
-             RCNTRL(17) = 0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
-             RCNTRL(18) = 0._dp    ! alpha_21
-             RCNTRL(19) = -2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
-             RCNTRL(20) = -2._dp+(k-1)*0.01_dp ! b2
+             ! For RodasExt
+!             ICNTRL(3) = -1
+!             RCNTRL(17) = 0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
+!             RCNTRL(18) = 0._dp    ! alpha_21
+!             RCNTRL(19) = -2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
+!             RCNTRL(20) = -2._dp+(k-1)*0.01_dp ! b2
+
+             ! For Ros3Ext
+             ICNTRL(3) = -2
+             RCNTRL(17) = 1.9_dp!+(i-1)*0.001
+             RCNTRL(18) = 2.
+             RCNTRL(19) = 0.5_dp!+(j-1)*0.005
+             !default B2 1.9410040761964420292840123379419_dp
 
              ICNTRL(4)  = 70
+
+!             ICNTRL(3) = 2
 
              ! Integrate the mechanism for an operator timestep
              CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
@@ -161,7 +171,7 @@ CONTAINS
 !             write(6,*) i,': ',RCNTRL(17), RCNTRL(19), RCNTRL(20), ISTATUS(3), RSTATE(20)
              write(998,*) i,',',j,',',k,',', &
                   RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20)
+                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR
           ENDDO
        ENDDO
     ENDDO
