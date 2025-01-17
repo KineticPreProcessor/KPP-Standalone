@@ -48,11 +48,12 @@ program main
   REAL(dp)               :: start,        finish
   REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT)
   REAL                   :: full_sumtime, full_avg
-  LOGICAL                :: OUTPUT
+  LOGICAL                :: OUTPUT, dumptest
 
   ! Vars for reading files
   character(len=256)     :: inputfile
   character(len=256)     :: outputfile
+  character(len=256)     :: testfile
 
 
    ! Check if an argument was provided
@@ -69,6 +70,14 @@ program main
      ! Get the second argument
      call get_command_argument(2, outputfile)
      print*, 'Output file: ', trim(outputfile)
+   endif
+
+   dumptest = .false.
+   if (command_argument_count() .ge. 3) then
+     ! Get the second argument
+     call get_command_argument(3, testfile)
+     dumptest = .true.
+     print*, 'Test dump file: ', trim(testfile)
    endif
 
   ! Initialize
@@ -106,9 +115,9 @@ CONTAINS
     ! Inputs
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
 
-    open(998,file='test.txt')
+    if (dumptest) open(998,file=testfile)
     II = 1!00
-    JJ = 1!00
+    JJ = 1!400
     KK = 1!400
     DO I=1,II
        DO J = 1,JJ
@@ -124,9 +133,9 @@ CONTAINS
 
              ! Absolute tolerance (ATOL):
              ! Set to a default value if not defined in the input file.
-!             WHERE( ATOL < 0.0_dp )
+             WHERE( ATOL < 0.0_dp )
                 ATOL = 1.0e-2_dp
-!             ENDWHERE
+             ENDWHERE
 
              ! Relative tolerance (RTOL)
              RTOL         = RTOL_VALUE
@@ -148,34 +157,37 @@ CONTAINS
              finish       = 0.0_dp
 
              ! For RodasExt
-!             ICNTRL(3) = -1
-!             RCNTRL(17) = 0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
-!             RCNTRL(18) = 0._dp    ! alpha_21
-!             RCNTRL(19) = -2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
-!             RCNTRL(20) = -2._dp+(k-1)*0.01_dp ! b2
+             ICNTRL(3) = -1
+             RCNTRL(17) = 0.5_dp!0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
+             RCNTRL(18) = 0._dp    ! alpha_21
+             RCNTRL(19) = -1.5_dp!-2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
+             RCNTRL(20) = 0.45_dp!-2._dp+(k-1)*0.01_dp ! b2
+!             RCNTRL(19) = 1.4_dp+(j-1)*0.001_dp !-0.25_dp ! gamma_31
+!             RCNTRL(20) = -1.15_dp+(k-1)*0.001_dp ! b2
 
              ! For Ros3Ext
-             ICNTRL(3) = -2
-             RCNTRL(17) = 1.9_dp!+(i-1)*0.001
-             RCNTRL(18) = 2.
-             RCNTRL(19) = 0.5_dp!+(j-1)*0.005
-             !default B2 1.9410040761964420292840123379419_dp
+!             ICNTRL(3) = -2
+!             RCNTRL(17) = 1.9_dp!+(i-1)*0.001
+!             RCNTRL(18) = 2.
+!             RCNTRL(19) = 0.5_dp!+(j-1)*0.005
+!             !default B2 1.9410040761964420292840123379419_dp
 
              ICNTRL(4)  = 70
 
-!             ICNTRL(3) = 2
+!             ICNTRL(3) = 0
 
              ! Integrate the mechanism for an operator timestep
              CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
 !             write(6,*) i,': ',RCNTRL(17), RCNTRL(19), RCNTRL(20), ISTATUS(3), RSTATE(20)
-             write(998,*) i,',',j,',',k,',', &
+             if(dumptest) write(998,*) i,',',j,',',k,',', &
                   RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR
+                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+                  ',',C(ind_NO),',',C(ind_OH)
           ENDDO
        ENDDO
     ENDDO
-    close(998)
+    if (dumptest) close(998)
 
     ! Write results
     write( 6, 10 ) fileTotSteps
