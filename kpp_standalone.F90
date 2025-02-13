@@ -160,8 +160,8 @@ CONTAINS
              ICNTRL(3) = -1
              RCNTRL(17) = 0.5_dp!0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
              RCNTRL(18) = 0._dp    ! alpha_21
-             RCNTRL(19) = -1.5_dp!-2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
-             RCNTRL(20) = 0.45_dp!-2._dp+(k-1)*0.01_dp ! b2
+             RCNTRL(19) = -1.4_dp!-2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
+             RCNTRL(20) = 0.35_dp!-2._dp+(k-1)*0.01_dp ! b2
 !             RCNTRL(19) = 1.4_dp+(j-1)*0.001_dp !-0.25_dp ! gamma_31
 !             RCNTRL(20) = -1.15_dp+(k-1)*0.001_dp ! b2
 
@@ -180,7 +180,8 @@ CONTAINS
              CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
 !             write(6,*) i,': ',RCNTRL(17), RCNTRL(19), RCNTRL(20), ISTATUS(3), RSTATE(20)
-             if(dumptest) write(998,*) i,',',j,',',k,',', &
+             if(dumptest) write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
+                  i,',',j,',',k,',', &
                   RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
                   ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
                   ',',C(ind_NO),',',C(ind_OH)
