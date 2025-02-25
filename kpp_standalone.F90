@@ -93,11 +93,12 @@ program main
 
   ! TODO: Pass RTOL from the commmand line
   ! Run the full mechanism
-  call fullmech( RTOL_VALUE = 0.5e-2_dp )
+  if (fileTotSteps .gt. 5) &
+       call fullmech( RTOL_VALUE = 0.5e-2_dp )
 
   ! Write the output file
   if (command_argument_count() .ge. 2) then
-    call write_output(inputfile,outputfile)
+!    call write_output(inputfile,outputfile)
   endif
 
 CONTAINS
@@ -117,8 +118,8 @@ CONTAINS
 
     if (dumptest) open(998,file=testfile)
     II = 1!00
-    JJ = 1!400
-    KK = 1!400
+    JJ = 249
+    KK = 100
     DO I=1,II
        DO J = 1,JJ
           DO K = 1,KK
@@ -160,31 +161,26 @@ CONTAINS
              ICNTRL(3) = -1
              RCNTRL(17) = 0.5_dp!0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
              RCNTRL(18) = 0._dp    ! alpha_21
-             RCNTRL(19) = -1.4_dp!-2._dp+(j-1)*0.01_dp !-0.25_dp ! gamma_31
-             RCNTRL(20) = 0.35_dp!-2._dp+(k-1)*0.01_dp ! b2
-!             RCNTRL(19) = 1.4_dp+(j-1)*0.001_dp !-0.25_dp ! gamma_31
-!             RCNTRL(20) = -1.15_dp+(k-1)*0.001_dp ! b2
-
-             ! For Ros3Ext
-!             ICNTRL(3) = -2
-!             RCNTRL(17) = 1.9_dp!+(i-1)*0.001
-!             RCNTRL(18) = 2.
-!             RCNTRL(19) = 0.5_dp!+(j-1)*0.005
-!             !default B2 1.9410040761964420292840123379419_dp
+             RCNTRL(19) = -0.01_dp-(j-1)*0.01_dp !-0.25_dp ! gamma_31
+             RCNTRL(20) = 0.01_dp+(k-1)*0.01_dp ! b2
 
              ICNTRL(4)  = 70
-
-!             ICNTRL(3) = 0
 
              ! Integrate the mechanism for an operator timestep
              CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
-!             write(6,*) i,': ',RCNTRL(17), RCNTRL(19), RCNTRL(20), ISTATUS(3), RSTATE(20)
-             if(dumptest) write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
-                  i,',',j,',',k,',', &
-                  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-                  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-                  ',',C(ind_NO),',',C(ind_OH)
+             if(dumptest) then
+                !write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
+                !  i,',',j,',',k,',', &
+                !  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+                !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+                !  ',',C(ind_NO),',',C(ind_OH)
+                                                                         
+                write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4)') &
+                     RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+                     ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+                     ',', Hstart,',',cosSZA,',',fileTotSteps
+             ENDIF
           ENDDO
        ENDDO
     ENDDO
