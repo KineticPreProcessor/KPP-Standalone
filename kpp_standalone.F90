@@ -115,74 +115,90 @@ CONTAINS
 
     ! Inputs
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
+    real :: x, y, theta, radius
+    real :: x_center, y_center
+    real :: theta_start, theta_end, theta_step
+    integer :: i, num_points
+
+    ! Arc parameters                                                                                                  
+    radius = 0.5
+    x_center = -0.5
+    y_center = 0.0
+    theta_start = 90
+    theta_end   = 180
+    theta_step  = 1.0
+    num_points  = int((theta_end - theta_start) / theta_step) + 1
 
     if (dumptest) open(998,file=testfile)
-    II = 1!00
-    JJ = 249
-    KK = 100
-    DO I=1,II
-       DO J = 1,JJ
-          DO K = 1,KK
-          ! Initializze
-             IERR         = 0
-             ISTATUS      = 0
-             RSTATE       = 0.0_dp
+    DO ii = 0,num_points -1
 
-             ! For most integrators, RCNTRL(3) is the starting value of the
-             ! integration step size, so override the initial setting with this.
-             RCNTRL(3)    = Hstart
+       theta = theta_start + ii * theta_step
+       ! Convert angle to radians
+       theta = theta * 3.14159265358979 / 180.0
+       
+       ! Calculate the x and y coordinates of the point on the arc
+       x = radius * cos(theta) + x_center
+       y = radius * sin(theta) + y_center
 
-             ! Absolute tolerance (ATOL):
-             ! Set to a default value if not defined in the input file.
-             WHERE( ATOL < 0.0_dp )
-                ATOL = 1.0e-2_dp
-             ENDWHERE
 
-             ! Relative tolerance (RTOL)
-             RTOL         = RTOL_VALUE
+       ! Initializze
+       IERR         = 0
+       ISTATUS      = 0
+       RSTATE       = 0.0_dp
 
-             ! Set ENV
-             T            = 0.0_dp
-             TIN          = T
-             TOUT         = T + OperatorTimestep
+       ! For most integrators, RCNTRL(3) is the starting value of the
+       ! integration step size, so override the initial setting with this.
+       RCNTRL(3)    = Hstart
 
-             ! Set initial concentrations (C) and reacton rates (RCONST)
-             ! to values read from the input file
-             C            = Cinit
-             RCONST       = R
+       ! Absolute tolerance (ATOL):
+       ! Set to a default value if not defined in the input file.
+       WHERE( ATOL < 0.0_dp )
+          ATOL = 1.0e-2_dp
+       ENDWHERE
 
-             ! Initialize timings
-             full_avg     = 0.0
-             full_sumtime = 0.0
-             start        = 0.0_dp
-             finish       = 0.0_dp
+       ! Relative tolerance (RTOL)
+       RTOL         = RTOL_VALUE
 
-             ! For RodasExt
-             ICNTRL(3) = -1
-             RCNTRL(17) = 0.5_dp!0.48_dp+(i-1)*0.01_dp !0.5_dp   ! Gamma
-             RCNTRL(18) = 0._dp    ! alpha_21
-             RCNTRL(19) = -0.01_dp-(j-1)*0.01_dp !-0.25_dp ! gamma_31
-             RCNTRL(20) = 0.01_dp+(k-1)*0.01_dp ! b2
+       ! Set ENV
+       T            = 0.0_dp
+       TIN          = T
+       TOUT         = T + OperatorTimestep
 
-             ICNTRL(4)  = 70
+       ! Set initial concentrations (C) and reacton rates (RCONST)
+       ! to values read from the input file
+       C            = Cinit
+       RCONST       = R
 
-             ! Integrate the mechanism for an operator timestep
-             CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+       ! Initialize timings
+       full_avg     = 0.0
+       full_sumtime = 0.0
+       start        = 0.0_dp
+       finish       = 0.0_dp
 
-             if(dumptest) then
-                !write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
-                !  i,',',j,',',k,',', &
-                !  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-                !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-                !  ',',C(ind_NO),',',C(ind_OH)
-                                                                         
-                write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4)') &
-                     RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-                     ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-                     ',', Hstart,',',cosSZA,',',fileTotSteps
-             ENDIF
-          ENDDO
-       ENDDO
+       ! For RodasExt
+       ICNTRL(3) = -1
+       RCNTRL(17) = 0.5_dp
+       RCNTRL(18) = 0._dp    ! alpha_21
+       RCNTRL(19) = x        ! gamma_31
+       RCNTRL(20) = y        ! b2
+
+       ICNTRL(4)  = 70
+
+       ! Integrate the mechanism for an operator timestep
+       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+
+       if(dumptest) then
+          !write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
+          !  i,',',j,',',k,',', &
+          !  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+          !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+          !  ',',C(ind_NO),',',C(ind_OH)
+
+          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4)') &
+               RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+               ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+               ',', Hstart,',',cosSZA,',',fileTotSteps
+       ENDIF
     ENDDO
     if (dumptest) close(998)
 
