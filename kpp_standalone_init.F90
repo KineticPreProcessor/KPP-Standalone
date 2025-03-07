@@ -8,7 +8,7 @@ contains
 subroutine read_input( filename,     R,                C,      SPC_NAMES,    &
                        Hstart,       Hexit,            cosSZA, level,        &
                        fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL,       &
-                       ATOL                                                 )
+                       ATOL, airden                                         )
 
   USE gckpp_Parameters
 
@@ -27,6 +27,7 @@ subroutine read_input( filename,     R,                C,      SPC_NAMES,    &
   real(dp),         intent(out) :: OperatorTimestep  ! External timestep
   real(dp),         intent(out) :: RCNTRL(20)        ! Integrator options
   real(dp),         intent(out) :: ATOL(NVAR)        ! Abs. tolerance
+  real(dp),         intent(out) :: airden
   integer,          intent(out) :: level             ! Model level
   integer,          intent(out) :: fileTotSteps      ! Total integration steps
   integer,          intent(out) :: ICNTRL(20)        ! Integrator options
@@ -93,6 +94,12 @@ subroutine read_input( filename,     R,                C,      SPC_NAMES,    &
         print *, "Error reading line", i
         exit
      end if
+
+     ! Get level
+     if (index(line, 'Dry air density (molec/cm3):') > 0 ) then
+        idx = index(line, ':') + 1
+        read(line(idx:), *) airden
+     endif
 
      ! Get level
      if (index(line, 'GEOS-Chem Vertical Level:') > 0 ) then

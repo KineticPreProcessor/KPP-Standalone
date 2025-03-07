@@ -46,7 +46,7 @@ program main
   REAL(dp)               :: RSTATE(20)
   REAL(dp)               :: T,            TIN,          TOUT
   REAL(dp)               :: start,        finish
-  REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT)
+  REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT), airden
   REAL                   :: full_sumtime, full_avg
   LOGICAL                :: OUTPUT, dumptest
 
@@ -89,7 +89,7 @@ program main
   call read_input( inputfile,    R,                Cinit,  SPC_NAMES,        &
                    Hstart,       Hexit,            cosSZA, level,            &
                    fileTotSteps, OperatorTimestep, ICNTRL, RCNTRL,           &
-                   ATOL                                                     )
+                   ATOL, airden                                               )
 
   ! TODO: Pass RTOL from the commmand line
   ! Run the full mechanism
@@ -124,7 +124,7 @@ CONTAINS
     radius = 0.5
     x_center = -0.5
     y_center = 0.0
-    theta_start = 90
+    theta_start = 0
     theta_end   = 180
     theta_step  = 1.0
     num_points  = int((theta_end - theta_start) / theta_step) + 1
@@ -194,10 +194,10 @@ CONTAINS
           !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
           !  ',',C(ind_NO),',',C(ind_OH)
 
-          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4)') &
+          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4,a,e10.3)') &
                RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
                ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-               ',', Hstart,',',cosSZA,',',fileTotSteps
+               ',', Hstart,',',cosSZA,',',fileTotSteps,',',airden
        ENDIF
     ENDDO
     if (dumptest) close(998)
