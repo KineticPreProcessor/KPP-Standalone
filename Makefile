@@ -45,7 +45,7 @@ FC   = $(FC_$(COMPILER))
 FOPT = $(FOPT_$(COMPILER)) # -DFULL_ALGEBRA
 
 LIBS =
-LIBS = -llapack -lblas
+LIBS = -L/home/mslong1/RODAS/lib/lapack/lib64/ -llapack -lblas
 
 # Command to create Matlab mex gateway routines 
 # Note: use $(FC) as the mex Fortran compiler

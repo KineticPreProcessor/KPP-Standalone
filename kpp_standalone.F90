@@ -93,7 +93,7 @@ program main
 
   ! TODO: Pass RTOL from the commmand line
   ! Run the full mechanism
-  if (fileTotSteps .gt. 5) &
+!  if (fileTotSteps .gt. 5) &
        call fullmech( RTOL_VALUE = 0.5e-2_dp )
 
   ! Write the output file
@@ -122,15 +122,15 @@ CONTAINS
 
     ! Arc parameters                                                                                                  
     radius = 0.5
-    x_center = -0.5
-    y_center = 0.0
+    x_center = -0.5  ! This is gamma_31
+    y_center =  0.0  ! This is B2
     theta_start = 0
     theta_end   = 180
     theta_step  = 1.0
     num_points  = int((theta_end - theta_start) / theta_step) + 1
 
     if (dumptest) open(998,file=testfile)
-    DO ii = 0,num_points -1
+    DO ii = 0,num_points-1
 
        theta = theta_start + ii * theta_step
        ! Convert angle to radians
