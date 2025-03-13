@@ -30,6 +30,8 @@ program main
   USE GCKPP_MODEL
   USE KPP_STANDALONE_INIT, ONLY: read_input
 
+  use mod_kinds, only: ik, rk
+  use mod_network , only: network_type
 
   IMPLICIT NONE
 
@@ -55,6 +57,9 @@ program main
   character(len=256)     :: outputfile
   character(len=256)     :: testfile
 
+  type(network_type) :: net
+
+  real :: XX(296), YY(176)
 
    ! Check if an argument was provided
    if (command_argument_count() .ge. 1) then
@@ -93,12 +98,12 @@ program main
 
   ! TODO: Pass RTOL from the commmand line
   ! Run the full mechanism
-  if (fileTotSteps .gt. 5) &
-       call fullmech( RTOL_VALUE = 0.5e-2_dp )
+!  if (fileTotSteps .gt. 5) &
+  call fullmech( RTOL_VALUE = 0.5e-2_dp )
 
   ! Write the output file
   if (command_argument_count() .ge. 2) then
-!    call write_output(inputfile,outputfile)
+    call write_output(inputfile,outputfile)
   endif
 
 CONTAINS
@@ -117,90 +122,99 @@ CONTAINS
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
     real :: x, y, theta, radius
     real :: x_center, y_center
-    real :: theta_start, theta_end, theta_step
+    real :: theta_start, theta_end, theta_step, gamma
     integer :: i, num_points
 
-    ! Arc parameters                                                                                                  
-    radius = 0.5
-    x_center = -0.5
-    y_center = 0.0
-    theta_start = 0
-    theta_end   = 180
-    theta_step  = 1.0
-    num_points  = int((theta_end - theta_start) / theta_step) + 1
+    real :: start, finish, NN_time, KPP_time
 
-    if (dumptest) open(998,file=testfile)
-    DO ii = 0,num_points -1
+    call init()
+    call cpu_time(start)
+    ! Call the NN here and get theta
+    XX(1) = Hstart
+    XX(2) = COSsza
+    XX(3:296) = Cinit(1:294)
+    XX = XX/airden
+    YY = net%output(XX)
 
-       theta = theta_start + ii * theta_step
-       ! Convert angle to radians
-       theta = theta * 3.14159265358979 / 180.0
-       
-       ! Calculate the x and y coordinates of the point on the arc
-       x = radius * cos(theta) + x_center
-       y = radius * sin(theta) + y_center
+    call cpu_time(finish)
 
+    NN_time = finish-start
 
-       ! Initializze
-       IERR         = 0
-       ISTATUS      = 0
-       RSTATE       = 0.0_dp
+!    write(*,*) YY
 
-       ! For most integrators, RCNTRL(3) is the starting value of the
-       ! integration step size, so override the initial setting with this.
-       RCNTRL(3)    = Hstart
+    theta = MINLOC(YY, DIM=1)
+    
+    write(*,*) 'theta & expected step: ', theta, minval(YY)
+    write(*,*) 'NN processing time: ', NN_time
 
-       ! Absolute tolerance (ATOL):
-       ! Set to a default value if not defined in the input file.
-       WHERE( ATOL < 0.0_dp )
-          ATOL = 1.0e-2_dp
-       ENDWHERE
+    ! Convert theta to radians
+    theta = theta * 3.14159265358979 / 180.0
+    gamma = 0.5_dp
 
-       ! Relative tolerance (RTOL)
-       RTOL         = RTOL_VALUE
+    ! Calculate the x and y coordinates of the point on the arc
+    x = 0.5 * cos(theta) - gamma
+    y = 0.5 * sin(theta)
 
-       ! Set ENV
-       T            = 0.0_dp
-       TIN          = T
-       TOUT         = T + OperatorTimestep
+    write(*,*) x,y
 
-       ! Set initial concentrations (C) and reacton rates (RCONST)
-       ! to values read from the input file
-       C            = Cinit
-       RCONST       = R
+    ! Initializze
+    IERR         = 0
+    ISTATUS      = 0
+    RSTATE       = 0.0_dp
 
-       ! Initialize timings
-       full_avg     = 0.0
-       full_sumtime = 0.0
-       start        = 0.0_dp
-       finish       = 0.0_dp
+    ! For most integrators, RCNTRL(3) is the starting value of the
+    ! integration step size, so override the initial setting with this.
+    RCNTRL(3)    = Hstart
 
-       ! For RodasExt
-       ICNTRL(3) = -1
-       RCNTRL(17) = 0.5225_dp
-       RCNTRL(18) = 0._dp    ! alpha_21
-       RCNTRL(19) = x        ! gamma_31
-       RCNTRL(20) = y        ! b2
+    ! Absolute tolerance (ATOL):
+    ! Set to a default value if not defined in the input file.
+    WHERE( ATOL < 0.0_dp )
+       ATOL = 1.0e-2_dp
+    ENDWHERE
 
-       ICNTRL(4)  = 70
+    ! Relative tolerance (RTOL)
+    RTOL         = RTOL_VALUE
 
-       ! Integrate the mechanism for an operator timestep
-       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+    ! Set ENV
+    T            = 0.0_dp
+    TIN          = T
+    TOUT         = T + OperatorTimestep
 
-       if(dumptest) then
-          !write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
-          !  i,',',j,',',k,',', &
-          !  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-          !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-          !  ',',C(ind_NO),',',C(ind_OH)
+    ! Set initial concentrations (C) and reacton rates (RCONST)
+    ! to values read from the input file
+    C            = Cinit
+    RCONST       = R
 
-          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4,a,e10.3)') &
-               RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-               ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-               ',', Hstart,',',cosSZA,',',fileTotSteps,',',airden
-       ENDIF
-    ENDDO
-    if (dumptest) close(998)
+    ! Initialize timings
+    full_avg     = 0.0
+    full_sumtime = 0.0
+    start        = 0.0_dp
+    finish       = 0.0_dp
+
+    ! For RodasExt
+    ICNTRL(3) = -1
+    RCNTRL(17) = gamma !0.5225_dp
+    RCNTRL(18) = 0._dp    ! alpha_21
+    RCNTRL(19) = x        ! gamma_31
+    RCNTRL(20) = y        ! b2
+
+    ICNTRL(4)  = 70
+
+    call cpu_time(start)
+    ! Integrate the mechanism for an operator timestep
+    CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+
+    !       if(dumptest) then
+    !          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4,a,e10.3)') &
+    !               RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
+    !               ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
+    !               ',', Hstart,',',cosSZA,',',fileTotSteps,',',airden
+
+    call cpu_time(finish)
+    KPP_time = finish-start
+
+    write(*,*) 'KPP time: ', kpp_time
+    write(*,*) 'Time ratio (NN/KPP): ', NN_time/KPP_time 
 
     ! Write results
     write( 6, 10 ) fileTotSteps
@@ -288,5 +302,15 @@ CONTAINS
     close(20)
 
  end subroutine write_output
+
+ ! KF Bridge routines
+
+ subroutine init()
+   IMPLICIT NONE
+
+   call net % load('model.l13n296.v6.1.txt')
+
+   return
+ end subroutine init
 
 end program main

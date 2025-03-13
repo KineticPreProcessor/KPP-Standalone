@@ -45,7 +45,7 @@ FC   = $(FC_$(COMPILER))
 FOPT = $(FOPT_$(COMPILER)) # -DFULL_ALGEBRA
 
 LIBS =
-LIBS = -llapack -lblas
+LIBS = -llapack -lblas -L../FKB/build/lib/ -lneural
 
 # Command to create Matlab mex gateway routines 
 # Note: use $(FC) as the mex Fortran compiler
@@ -83,6 +83,8 @@ INIOBJ 	 = gckpp_Initialize.o
 MAINSRC = kpp_standalone.F90   gckpp_Initialize.F90   gckpp_Integrator.F90 gckpp_Model.F90 
 MAINOBJ = kpp_standalone.o     gckpp_Initialize.o     gckpp_Integrator.o
 
+NNOBJ   :=  ../FKB/build/CMakeFiles/neural.dir/src/lib/mod_kinds.F90.o
+NNMOD   :=  -I../FKB/build/include
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User: modify the line below to include only the
@@ -98,7 +100,7 @@ ALLOBJ = $(GENOBJ) $(JACOBJ) $(FUNOBJ)  $(HESOBJ) $(STMOBJ) \
 all:    exe
 
 exe:	$(ALLOBJ) $(MAINOBJ) kpp_standalone_init.o
-	$(FC) $(FOPT) kpp_standalone.F90 gckpp_Integrator.o kpp_standalone_init.o $(ALLOBJ) $(LIBS) -o kpp_standalone.exe
+	$(FC) $(FOPT) kpp_standalone.F90 gckpp_Integrator.o kpp_standalone_init.o $(NNMOD) $(NNOBJ) $(ALLOBJ) $(LIBS) -o kpp_standalone.exe
 
 
 stochastic:$(ALLOBJ) $(STOCHOBJ) $(MAINOBJ)
@@ -184,7 +186,7 @@ kpp_standalone_init.o: kpp_standalone_init.F90 gckpp_Parameters.o
 	$(FC) $(FOPT) -c $<
 
 kpp_standalone.o: kpp_standalone.F90 kpp_standalone_init.o gckpp_Integrator.o $(ALLOBJ)
-	$(FC) $(FOPT) -c $<
+	$(FC) $(FOPT) $(NNMOD) -c $<
 
 # Check if the standalone model runs
 check:
