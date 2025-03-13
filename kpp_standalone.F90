@@ -177,7 +177,7 @@ CONTAINS
 
        ! For RodasExt
        ICNTRL(3) = -1
-       RCNTRL(17) = 0.5_dp
+       RCNTRL(17) = 0.5225_dp
        RCNTRL(18) = 0._dp    ! alpha_21
        RCNTRL(19) = x        ! gamma_31
        RCNTRL(20) = y        ! b2
