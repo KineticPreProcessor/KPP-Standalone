@@ -120,7 +120,10 @@ CONTAINS
     real :: theta_start, theta_end, theta_step
     integer :: i, num_points
 
-    ! Arc parameters                                                                                                  
+    ! Arc parameters                                                                                                 
+    ! Original RODAS3 coeffs equivalent to theta=146.31 deg (radius=0.30)
+    !   At radius = 0.5, x=-0.91 y=0.277
+ 
     radius = 0.5
     x_center = -0.5  ! This is gamma_31
     y_center =  0.0  ! This is B2
