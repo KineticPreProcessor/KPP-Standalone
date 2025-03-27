@@ -201,7 +201,7 @@ CONTAINS
     OPEN(10, file=inputfile, status='old')
 
     ! Write the header lines to the output file
-    WRITE(20, '(A)') "43"
+    WRITE(20, '(A)') "44"
     WRITE(20, '(A)') REPEAT( "=", 79 )
     WRITE(20, '(A)') ""
     WRITE(20, '(A)') "KPP Standalone Output"
