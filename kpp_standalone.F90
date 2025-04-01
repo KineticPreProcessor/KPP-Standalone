@@ -110,10 +110,13 @@ CONTAINS
     IERR         = 0
     ISTATUS      = 0
     RSTATE       = 0.0_dp
+    RCNTRL       = 0.0_dp
 
     ! For most integrators, RCNTRL(3) is the starting value of the
     ! integration step size, so override the initial setting with this.
     RCNTRL(3)    = Hstart
+
+    ICNTRL(15)   = -1
 
     ! Absolute tolerance (ATOL):
     ! Set to a default value if not defined in the input file.
