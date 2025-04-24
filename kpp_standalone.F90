@@ -127,9 +127,9 @@ CONTAINS
     radius = 0.5
     x_center = -0.5  ! This is gamma_31
     y_center =  0.0  ! This is B2
-    theta_start = 0
-    theta_end   = 180
-    theta_step  = 1.0
+    theta_start = 180
+    theta_end   = 360
+    theta_step  = 1.
     num_points  = int((theta_end - theta_start) / theta_step) + 1
 
     if (dumptest) open(998,file=testfile)
