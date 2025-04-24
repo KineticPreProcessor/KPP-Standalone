@@ -42,10 +42,14 @@ FOPT_GFORTRAN   = -cpp -O
 
 # define FULL_ALGEBRA for non-sparse integration
 FC   = $(FC_$(COMPILER))
-FOPT = $(FOPT_$(COMPILER)) # -DFULL_ALGEBRA
+FOPT = $(FOPT_$(COMPILER)) -I/usr/lib64/gfortran/modules # -DFULL_ALGEBRA
 
 LIBS =
-LIBS = -L/home/mslong1/RODAS/lib/lapack/lib64/ -llapack -lblas
+
+#LIBS = -L/home/mslong1/RODAS/lib/lapack/lib64/ -llapack -lblas
+
+LIBS = -llapack -lblas -lnetcdf -lnetcdff
+
 
 # Command to create Matlab mex gateway routines 
 # Note: use $(FC) as the mex Fortran compiler

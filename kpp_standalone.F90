@@ -30,6 +30,7 @@ program main
   USE GCKPP_MODEL
   USE KPP_STANDALONE_INIT, ONLY: read_input
 
+  USE NETCDF
 
   IMPLICIT NONE
 
@@ -55,6 +56,8 @@ program main
   character(len=256)     :: outputfile
   character(len=256)     :: testfile
 
+  integer :: ncid, err,row_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
+  real(dp) :: rowdata(290)
 
    ! Check if an argument was provided
    if (command_argument_count() .ge. 1) then
@@ -84,6 +87,23 @@ program main
   OUTPUT       = .false.
   RCONST       = 0.0_dp
   C            = 0.0_dp
+
+  ! Create netcdf file
+  err = nf90_create('X.nc',NF90_CLOBBER, ncid)
+  write(*,*) '<<>> ', err
+  err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
+  write(*,*) '<<>> ', err
+  err = nf90_def_dim(ncid,'col',290,col_id)
+  write(*,*) '<<>> ', err
+  dim_ids = (/col_id,row_id/)
+  err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
+  write(*,*) '<<>> col ', err
+  err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
+  write(*,*) '<<>> row ', err
+  err = nf90_def_var(ncid,'X',NF90_DOUBLE,dim_ids,varid)
+  write(*,*) '<<>> ', err
+  err = nf90_enddef(ncid)
+  write(*,*) '<<>> ', err
 
   ! Read the input file
   call read_input( inputfile,    R,                Cinit,  SPC_NAMES,        &
@@ -132,7 +152,25 @@ CONTAINS
     theta_step  = 1.
     num_points  = int((theta_end - theta_start) / theta_step) + 1
 
+    err = nf90_open('X.nc',NF90_WRITE,ncid)
+    err = nf90_inq_varid(ncid,'X',varid)
+    err = nf90_inq_dimid(ncid,'row',row_id)
+    err = nf90_inq_dimid(ncid,'col',col_id)
+    write(*,*) '<<>> <<>> ', err, col_id,row_id
+
     if (dumptest) open(998,file=testfile)
+
+    err = nf90_inquire_dimension(ncid,col_id,len=row_len)
+    write(*,*) 'colsize ', row_len
+    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+    write(*,*) 'rowsize ', row_len
+    write(*,*) '<<>> inqire dimension ', err
+    rowdata = (/1d0,Hstart,cosSZA,Cinit(1:NVAR)/)
+    start_ = (/1, row_len+1/)          ! Start at col=0, row=row_len (new row)
+    count_ = (/290, 1/)
+    err = nf90_put_var(ncid,varid,rowdata,start=start_)
+    write(*,*) '<<>> put ', err
+
     DO ii = 0,num_points-1
 
        theta = theta_start + ii * theta_step
@@ -190,45 +228,35 @@ CONTAINS
        ! Integrate the mechanism for an operator timestep
        CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
-       if(dumptest) then
-          !write(998,'(i3,a,i3,a,i3,a,f12.8,a,f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e15.8,a,e15.8)') &
-          !  i,',',j,',',k,',', &
-          !  RCNTRL(17),',', RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-          !  ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-          !  ',',C(ind_NO),',',C(ind_OH)
-
-          write(998,'(f12.8,a,f12.8,a,i4,a,i4,a,i4,a,i4,a,f12.8,a,i4,a,e10.3,a,e10.3,a,i4,a,e10.3)') &
-               RCNTRL(19),',', RCNTRL(20),',', ISTATUS(3),',', &
-               ISTATUS(4),',', ISTATUS(5),',', ISTATUS(1),',', RSTATE(20),',', IERR, &
-               ',', Hstart,',',cosSZA,',',fileTotSteps,',',airden
-       ENDIF
     ENDDO
+    
     if (dumptest) close(998)
+    err = nf90_close(ncid)
 
     ! Write results
     write( 6, 10 ) fileTotSteps
- 10 format( " Number of internal timesteps (from 3D run): ", i5 )
+10  format( " Number of internal timesteps (from 3D run): ", i5 )
 
     write( 6, 11 ) ISTATUS(3)
- 11 format( " Number of internal timesteps ( standalone): ", i5 )
+11  format( " Number of internal timesteps ( standalone): ", i5 )
 
     write( 6, 12 ) Hexit
- 12 format(  " Hexit (from 3D run): ", f10.2 )
+12  format(  " Hexit (from 3D run): ", f10.2 )
 
     write( 6, 13 ) RSTATE(2)
- 13 format( " Hexit ( standalone): ", f10.2 )
+13  format( " Hexit ( standalone): ", f10.2 )
 
     ! Check if 3D results are consistent with standalone
     if ( fileTotSteps /= ISTATUS(3) ) then
        write( 6, 14 )
- 14    format( "Warning: Number of internal steps do not match 3D grid cell" )
+14     format( "Warning: Number of internal steps do not match 3D grid cell" )
     endif
     if ( abs( Hexit - RSTATE(2) ) / Hexit > 0.001_dp ) then
        write( 6, 15 )
- 15  format( "Warning: final timestep does not match 3D grid cell within 0.1%" )
+15     format( "Warning: final timestep does not match 3D grid cell within 0.1%" )
     endif
 
- end subroutine fullmech
+end subroutine fullmech
 
  subroutine write_output(inputfile, outputfile)
 
