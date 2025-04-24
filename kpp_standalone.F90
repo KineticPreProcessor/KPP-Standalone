@@ -49,15 +49,16 @@ program main
   REAL(dp)               :: start,        finish
   REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT), airden
   REAL                   :: full_sumtime, full_avg
-  LOGICAL                :: OUTPUT, dumptest
+  LOGICAL                :: OUTPUT, dumptest, exists
 
   ! Vars for reading files
   character(len=256)     :: inputfile
   character(len=256)     :: outputfile
   character(len=256)     :: testfile
 
-  integer :: ncid, err,row_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
-  real(dp) :: rowdata(290)
+  integer  :: ncid, err,row_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
+  integer  :: nsteps_id, hstart_id, cossza_id, theta_id, lev_id
+  real(dp) :: rowdata(NVAR)
 
    ! Check if an argument was provided
    if (command_argument_count() .ge. 1) then
@@ -89,21 +90,20 @@ program main
   C            = 0.0_dp
 
   ! Create netcdf file
-  err = nf90_create('X.nc',NF90_CLOBBER, ncid)
-  write(*,*) '<<>> ', err
-  err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
-  write(*,*) '<<>> ', err
-  err = nf90_def_dim(ncid,'col',290,col_id)
-  write(*,*) '<<>> ', err
-  dim_ids = (/col_id,row_id/)
-  err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
-  write(*,*) '<<>> col ', err
-  err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
-  write(*,*) '<<>> row ', err
-  err = nf90_def_var(ncid,'X',NF90_DOUBLE,dim_ids,varid)
-  write(*,*) '<<>> ', err
-  err = nf90_enddef(ncid)
-  write(*,*) '<<>> ', err
+  inquire(file='X.nc',exist=exists)
+  if (.not. exists) then
+     err = nf90_create('X.nc',NF90_CLOBBER, ncid)
+     err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
+     err = nf90_def_dim(ncid,'col',290,col_id)
+     dim_ids = (/col_id,row_id/)
+     err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
+     err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
+     err = nf90_def_var(ncid,'C',NF90_DOUBLE,dim_ids,varid)
+     err = nf90_def_var(ncid,'Hstart',NF90_DOUBLE,row_id,varid)
+     err = nf90_def_var(ncid,'COSsza',NF90_DOUBLE,row_id,varid)
+     err = nf90_def_var(ncid,'lev',NF90_INT,row_id,varid)
+     err = nf90_enddef(ncid)
+  endif
 
   ! Read the input file
   call read_input( inputfile,    R,                Cinit,  SPC_NAMES,        &
@@ -139,6 +139,7 @@ CONTAINS
     real :: x_center, y_center
     real :: theta_start, theta_end, theta_step
     integer :: i, num_points
+    integer, allocatable :: steps(:)
 
     ! Arc parameters                                                                                                 
     ! Original RODAS3 coeffs equivalent to theta=146.31 deg (radius=0.30)
@@ -152,24 +153,60 @@ CONTAINS
     theta_step  = 1.
     num_points  = int((theta_end - theta_start) / theta_step) + 1
 
+    allocate(steps(num_points))
+
+! Process X.nc
     err = nf90_open('X.nc',NF90_WRITE,ncid)
-    err = nf90_inq_varid(ncid,'X',varid)
+    err = nf90_inq_varid(ncid,'C',varid)
+    err = nf90_inq_varid(ncid,'COSsza',cossza_id)
+    err = nf90_inq_varid(ncid,'Hstart',hstart_id)
+    err = nf90_inq_varid(ncid,'lev',lev_id)
     err = nf90_inq_dimid(ncid,'row',row_id)
     err = nf90_inq_dimid(ncid,'col',col_id)
-    write(*,*) '<<>> <<>> ', err, col_id,row_id
-
-    if (dumptest) open(998,file=testfile)
-
-    err = nf90_inquire_dimension(ncid,col_id,len=row_len)
-    write(*,*) 'colsize ', row_len
     err = nf90_inquire_dimension(ncid,row_id,len=row_len)
-    write(*,*) 'rowsize ', row_len
-    write(*,*) '<<>> inqire dimension ', err
-    rowdata = (/1d0,Hstart,cosSZA,Cinit(1:NVAR)/)
+    rowdata = (/Cinit(1:NVAR)/)
     start_ = (/1, row_len+1/)          ! Start at col=0, row=row_len (new row)
     count_ = (/290, 1/)
     err = nf90_put_var(ncid,varid,rowdata,start=start_)
-    write(*,*) '<<>> put ', err
+    err = nf90_put_var(ncid,hstart_id,Hstart,start=(/row_len+1/))
+    err = nf90_put_var(ncid,cossza_id,COSsza,start=(/row_len+1/))
+    err = nf90_put_var(ncid,lev_id,level,start=(/row_len+1/))
+    err = nf90_close(ncid)
+! This is all we godda to with X.nc
+
+! Create Y.nc
+    inquire(file='Y.nc',exist=exists)
+    if (.not. exists) then
+       err = nf90_create('Y.nc',NF90_CLOBBER, ncid)
+       err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
+       err = nf90_def_dim(ncid,'theta',num_points,  col_id)
+       dim_ids = (/col_id,row_id/)
+       err = nf90_def_var(ncid,'theta',NF90_DOUBLE,(/col_id/),varid)
+       write(*,*) '<<>> err: ', err
+       err = nf90_def_var(ncid,'Nsteps',NF90_DOUBLE,dim_ids,varid)
+       err = nf90_enddef(ncid)
+
+       err = nf90_inq_varid(ncid,'theta',theta_id)
+
+       DO ii = 0,num_points-1
+          
+          theta = theta_start + ii * theta_step
+
+          err = nf90_put_var(ncid,theta_id,theta,start=(/ii+1/))
+          write(*,*) '<<>> err: ', ii+1,'/',num_points, theta, err
+       
+       ENDDO
+       err = nf90_close(ncid)
+    endif
+
+! Process Y.nc
+    err = nf90_open('Y.nc',NF90_WRITE,ncid)
+    err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
+    err = nf90_inq_dimid(ncid,'row',row_id)
+    err = nf90_inq_dimid(ncid,'theta',col_id)
+!    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+
+    if (dumptest) open(998,file=testfile)
 
     DO ii = 0,num_points-1
 
@@ -228,10 +265,13 @@ CONTAINS
        ! Integrate the mechanism for an operator timestep
        CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
+       err = nf90_put_var(ncid,nsteps_id,ISTATUS(3),start=(/ii+1,row_len+1/))
+!       steps(ii+1) = ISTATUS(3)
     ENDDO
+
+    err = nf90_close(ncid)
     
     if (dumptest) close(998)
-    err = nf90_close(ncid)
 
     ! Write results
     write( 6, 10 ) fileTotSteps
