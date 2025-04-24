@@ -52,8 +52,8 @@ program main
   LOGICAL                :: OUTPUT, dumptest, exists
 
   ! Vars for reading files
-  character(len=256)     :: inputfile
-  character(len=256)     :: outputfile
+  character(len=256)     :: filetag, inputfile, outputfile
+  character(len=256)     :: xfilename, yfilename
   character(len=256)     :: testfile
 
   integer  :: ncid, err,row_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
@@ -70,18 +70,16 @@ program main
     stop
    endif
    ! If a second argument is provided, use it as the output file
+   filetag = ''
    if (command_argument_count() .ge. 2) then
-     ! Get the second argument
-     call get_command_argument(2, outputfile)
-     print*, 'Output file: ', trim(outputfile)
+      ! Get the second argument
+      call get_command_argument(2, outputfile)
+      print*, 'Output file: ', trim(outputfile)
    endif
-
-   dumptest = .false.
    if (command_argument_count() .ge. 3) then
-     ! Get the second argument
-     call get_command_argument(3, testfile)
-     dumptest = .true.
-     print*, 'Test dump file: ', trim(testfile)
+      ! Get the second argument
+      call get_command_argument(3, filetag)
+      print*, 'Test dump file: ', trim(filetag)
    endif
 
   ! Initialize
@@ -90,9 +88,11 @@ program main
   C            = 0.0_dp
 
   ! Create netcdf file
-  inquire(file='X.nc',exist=exists)
+  yfilename = 'Y_'//trim(filetag)//'.nc'
+  xfilename = 'X_'//trim(filetag)//'.nc'
+  inquire(file=xfilename,exist=exists)
   if (.not. exists) then
-     err = nf90_create('X.nc',NF90_CLOBBER, ncid)
+     err = nf90_create(xfilename,NF90_CLOBBER, ncid)
      err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
      err = nf90_def_dim(ncid,'col',290,col_id)
      dim_ids = (/col_id,row_id/)
@@ -156,7 +156,7 @@ CONTAINS
     allocate(steps(num_points))
 
 ! Process X.nc
-    err = nf90_open('X.nc',NF90_WRITE,ncid)
+    err = nf90_open(xfilename,NF90_WRITE,ncid)
     err = nf90_inq_varid(ncid,'C',varid)
     err = nf90_inq_varid(ncid,'COSsza',cossza_id)
     err = nf90_inq_varid(ncid,'Hstart',hstart_id)
@@ -175,9 +175,9 @@ CONTAINS
 ! This is all we godda to with X.nc
 
 ! Create Y.nc
-    inquire(file='Y.nc',exist=exists)
+    inquire(file=yfilename,exist=exists)
     if (.not. exists) then
-       err = nf90_create('Y.nc',NF90_CLOBBER, ncid)
+       err = nf90_create(yfilename,NF90_CLOBBER, ncid)
        err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
        err = nf90_def_dim(ncid,'theta',num_points,  col_id)
        dim_ids = (/col_id,row_id/)
@@ -193,14 +193,14 @@ CONTAINS
           theta = theta_start + ii * theta_step
 
           err = nf90_put_var(ncid,theta_id,theta,start=(/ii+1/))
-          write(*,*) '<<>> err: ', ii+1,'/',num_points, theta, err
+!          write(*,*) '<<>> err: ', ii+1,'/',num_points, theta, err
        
        ENDDO
        err = nf90_close(ncid)
     endif
 
 ! Process Y.nc
-    err = nf90_open('Y.nc',NF90_WRITE,ncid)
+    err = nf90_open(yfilename,NF90_WRITE,ncid)
     err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
     err = nf90_inq_dimid(ncid,'row',row_id)
     err = nf90_inq_dimid(ncid,'theta',col_id)
@@ -266,9 +266,10 @@ CONTAINS
        CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
        err = nf90_put_var(ncid,nsteps_id,ISTATUS(3),start=(/ii+1,row_len+1/))
-!       steps(ii+1) = ISTATUS(3)
+       steps(ii+1) = ISTATUS(3)
     ENDDO
-
+    write(*,*) steps
+    
     err = nf90_close(ncid)
     
     if (dumptest) close(998)

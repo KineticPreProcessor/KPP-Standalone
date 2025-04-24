@@ -42,13 +42,15 @@ FOPT_GFORTRAN   = -cpp -O
 
 # define FULL_ALGEBRA for non-sparse integration
 FC   = $(FC_$(COMPILER))
-FOPT = $(FOPT_$(COMPILER)) -I/usr/lib64/gfortran/modules # -DFULL_ALGEBRA
+FOPT = $(FOPT_$(COMPILER)) -I/usr/local/other/netcdf4/4.9.2/static/gcc-7.5.0/include # -DFULL_ALGEBRA
 
 LIBS =
 
-#LIBS = -L/home/mslong1/RODAS/lib/lapack/lib64/ -llapack -lblas
+NCLIB = -L/usr/local/other/netcdf4/4.9.2/static/gcc-7.5.0/lib -lnetcdff -L/usr/local/other/netcdf4/4.9.2/static/gcc-7.5.0/lib -lnetcdf -lm -lnetcdf -lm -lbz2 -lzstd -lxml2 -lhdf5_hl -lhdf5 -lsz -lz -lcurl -lrt -ldl -lm
 
-LIBS = -llapack -lblas -lnetcdf -lnetcdff
+LIBS = -L/home/mslong1/RODAS/lib/lapack/lib64/ -llapack -lblas $(NCLIB)
+
+#LIBS = -llapack -lblas -lnetcdf -lnetcdff
 
 
 # Command to create Matlab mex gateway routines 
