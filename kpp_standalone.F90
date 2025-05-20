@@ -214,12 +214,14 @@ CONTAINS
     DO jj = 0,200
     DO ii = 0,num_points-1
 
+       RCNTRL(17) = 0.41_dp+(jj-1)*0.001_dp
+
        theta = theta_start + ii * theta_step
        ! Convert angle to radians
        theta = theta * 3.14159265358979 / 180.0
        
        ! Calculate the x and y coordinates of the point on the arc
-       x = radius * cos(theta) + x_center
+       x = radius * cos(theta) - RCNTRL(17)
        y = radius * sin(theta) + y_center
 
 
@@ -259,7 +261,6 @@ CONTAINS
 
        ! For RodasExt
        ICNTRL(3) = -1
-       RCNTRL(17) = 0.41_dp+(jj-1)*0.001_dp
        RCNTRL(18) = 0._dp    ! alpha_21
        RCNTRL(19) = x        ! gamma_31
        RCNTRL(20) = y        ! b2
