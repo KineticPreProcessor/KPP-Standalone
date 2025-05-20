@@ -96,11 +96,12 @@ program main
      err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
      err = nf90_def_dim(ncid,'col',290,col_id)
      dim_ids = (/col_id,row_id/)
-     err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
-     err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
+!     err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
+!     err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
      err = nf90_def_var(ncid,'C',NF90_DOUBLE,dim_ids,varid)
      err = nf90_def_var(ncid,'Hstart',NF90_DOUBLE,row_id,varid)
      err = nf90_def_var(ncid,'COSsza',NF90_DOUBLE,row_id,varid)
+     err = nf90_def_var(ncid,'Nsteps',NF90_INT,row_id,varid)
      err = nf90_def_var(ncid,'lev',NF90_INT,row_id,varid)
      err = nf90_enddef(ncid)
   endif
@@ -146,7 +147,7 @@ CONTAINS
     !   At radius = 0.5, x=-0.91 y=0.277
  
     radius = 0.5
-    x_center = -0.5  ! This is gamma_31
+    x_center = -0.5225  ! This is gamma_31
     y_center =  0.0  ! This is B2
     theta_start = 180
     theta_end   = 360
@@ -160,6 +161,7 @@ CONTAINS
     err = nf90_inq_varid(ncid,'C',varid)
     err = nf90_inq_varid(ncid,'COSsza',cossza_id)
     err = nf90_inq_varid(ncid,'Hstart',hstart_id)
+    err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
     err = nf90_inq_varid(ncid,'lev',lev_id)
     err = nf90_inq_dimid(ncid,'row',row_id)
     err = nf90_inq_dimid(ncid,'col',col_id)
@@ -171,6 +173,7 @@ CONTAINS
     err = nf90_put_var(ncid,hstart_id,Hstart,start=(/row_len+1/))
     err = nf90_put_var(ncid,cossza_id,COSsza,start=(/row_len+1/))
     err = nf90_put_var(ncid,lev_id,level,start=(/row_len+1/))
+    err = nf90_put_var(ncid,nsteps_id,filetotsteps,start=(/row_len+1/))
     err = nf90_close(ncid)
 ! This is all we godda to with X.nc
 
@@ -205,8 +208,6 @@ CONTAINS
     err = nf90_inq_dimid(ncid,'row',row_id)
     err = nf90_inq_dimid(ncid,'theta',col_id)
 !    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
-
-    if (dumptest) open(998,file=testfile)
 
     DO ii = 0,num_points-1
 
@@ -255,7 +256,7 @@ CONTAINS
 
        ! For RodasExt
        ICNTRL(3) = -1
-       RCNTRL(17) = 0.5_dp
+       RCNTRL(17) = 0.5225_dp
        RCNTRL(18) = 0._dp    ! alpha_21
        RCNTRL(19) = x        ! gamma_31
        RCNTRL(20) = y        ! b2
@@ -268,12 +269,9 @@ CONTAINS
        err = nf90_put_var(ncid,nsteps_id,ISTATUS(3),start=(/ii+1,row_len+1/))
        steps(ii+1) = ISTATUS(3)
     ENDDO
-    write(*,*) steps
     
     err = nf90_close(ncid)
     
-    if (dumptest) close(998)
-
     ! Write results
     write( 6, 10 ) fileTotSteps
 10  format( " Number of internal timesteps (from 3D run): ", i5 )
