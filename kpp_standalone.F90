@@ -56,7 +56,7 @@ program main
   character(len=256)     :: xfilename, yfilename
   character(len=256)     :: testfile
 
-  integer  :: ncid, err,row_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
+  integer  :: ncid, err,row_id,rowv_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
   integer  :: nsteps_id, hstart_id, cossza_id, theta_id, lev_id
   real(dp) :: rowdata(NVAR)
 
@@ -185,6 +185,7 @@ CONTAINS
        err = nf90_def_dim(ncid,'theta',num_points,  col_id)
        dim_ids = (/col_id,row_id/)
        err = nf90_def_var(ncid,'theta',NF90_DOUBLE,(/col_id/),varid)
+       err = nf90_def_var(ncid,'row',NF90_DOUBLE,(/row_id/),varid)
        write(*,*) '<<>> err: ', err
        err = nf90_def_var(ncid,'Nsteps',NF90_DOUBLE,dim_ids,varid)
        err = nf90_enddef(ncid)
@@ -205,10 +206,12 @@ CONTAINS
 ! Process Y.nc
     err = nf90_open(yfilename,NF90_WRITE,ncid)
     err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
+    err = nf90_inq_varid(ncid,'row',rowv_id)
     err = nf90_inq_dimid(ncid,'row',row_id)
     err = nf90_inq_dimid(ncid,'theta',col_id)
 !    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
 
+    DO jj = 0,200
     DO ii = 0,num_points-1
 
        theta = theta_start + ii * theta_step
@@ -256,18 +259,22 @@ CONTAINS
 
        ! For RodasExt
        ICNTRL(3) = -1
-       RCNTRL(17) = 0.5225_dp
+       RCNTRL(17) = 0.41_dp+(jj-1)*0.001_dp
        RCNTRL(18) = 0._dp    ! alpha_21
        RCNTRL(19) = x        ! gamma_31
        RCNTRL(20) = y        ! b2
 
-       ICNTRL(4)  = 70
+       ICNTRL(4)  = 50
 
        ! Integrate the mechanism for an operator timestep
        CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
 
        err = nf90_put_var(ncid,nsteps_id,ISTATUS(3),start=(/ii+1,row_len+1/))
        steps(ii+1) = ISTATUS(3)
+    ENDDO
+    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+    err = nf90_put_var(ncid,rowv_id,RCNTRL(17),start=(/row_len+1/))
+    write(*,*) jj
     ENDDO
     
     err = nf90_close(ncid)
