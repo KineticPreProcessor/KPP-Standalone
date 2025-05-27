@@ -44,7 +44,7 @@ program main
   REAL(dp)               :: Hstart
   REAL(dp)               :: Hexit
   REAL(dp)               :: cosSZA
-  REAL(dp)               :: RSTATE(20)
+  REAL(dp)               :: RSTATUS(20)
   REAL(dp)               :: T,            TIN,          TOUT
   REAL(dp)               :: start,        finish
   REAL(dp)               :: Vloc(NVAR),   Cinit(NSPEC), R(NREACT), airden
@@ -54,11 +54,11 @@ program main
   ! Vars for reading files
   character(len=256)     :: filetag, inputfile, outputfile
   character(len=256)     :: xfilename, yfilename
-  character(len=256)     :: testfile
+  character(len=256)     :: testfile, tmp
 
   integer  :: ncid, err,row_id,rowv_id,col_id,dim_ids(2),varid,row_len,start_(2),count_(2)
-  integer  :: nsteps_id, hstart_id, cossza_id, theta_id, lev_id
-  real(dp) :: rowdata(NVAR)
+  integer  :: nsteps_id, hstart_id, cossza_id, theta_id, lev_id, err_id, rec_id, rec_len, ri
+  real(dp) :: rowdata(NVAR), u
 
    ! Check if an argument was provided
    if (command_argument_count() .ge. 1) then
@@ -87,24 +87,52 @@ program main
   RCONST       = 0.0_dp
   C            = 0.0_dp
 
-  ! Create netcdf file
-  yfilename = 'Y_'//trim(filetag)//'.nc'
-  xfilename = 'X_'//trim(filetag)//'.nc'
-  inquire(file=xfilename,exist=exists)
-  if (.not. exists) then
-     err = nf90_create(xfilename,NF90_CLOBBER, ncid)
-     err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
-     err = nf90_def_dim(ncid,'col',290,col_id)
-     dim_ids = (/col_id,row_id/)
-!     err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
-!     err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
-     err = nf90_def_var(ncid,'C',NF90_DOUBLE,dim_ids,varid)
-     err = nf90_def_var(ncid,'Hstart',NF90_DOUBLE,row_id,varid)
-     err = nf90_def_var(ncid,'COSsza',NF90_DOUBLE,row_id,varid)
-     err = nf90_def_var(ncid,'Nsteps',NF90_INT,row_id,varid)
-     err = nf90_def_var(ncid,'lev',NF90_INT,row_id,varid)
-     err = nf90_enddef(ncid)
+!>>  ! Create netcdf file
+  call random_number(u)
+  ri = FLOOR(1000000*u)
+  write (tmp, *) ri
+  tmp = adjustl(tmp)
+  yfilename = 'Y_'//trim(tmp)//'.nc'
+  inquire(file=yfilename,exist=exists)
+  if (exists) then
+     call random_number(u)
+     ri = FLOOR(1000000*u)
+     write (tmp, *) ri
+     tmp = adjustl(tmp)
+     yfilename = 'Y_'//trim(tmp)//'.nc'
   endif
+  inquire(file=yfilename,exist=exists)
+  if (exists) then
+     call random_number(u)
+     ri = FLOOR(1000000*u)
+     write (tmp, *) ri
+     tmp = adjustl(tmp)
+     yfilename = 'Y_'//trim(tmp)//'.nc'
+     inquire(file=yfilename,exist=exists)
+     if (exists) then
+        write(*,*) 'WTF!!!'
+        stop
+     endif
+  endif
+    
+
+  xfilename = 'X_'//trim(filetag)//'.nc'
+
+!>>  inquire(file=xfilename,exist=exists)
+!>>  if (.not. exists) then
+!>>     err = nf90_create(xfilename,NF90_CLOBBER, ncid)
+!>>     err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
+!>>     err = nf90_def_dim(ncid,'col',290,col_id)
+!>>     dim_ids = (/col_id,row_id/)
+!>>!     err = nf90_def_var(ncid,'col',NF90_INT,dim_ids,varid)
+!>>!     err = nf90_def_var(ncid,'row',NF90_INT,dim_ids,varid)
+!>>     err = nf90_def_var(ncid,'C',NF90_DOUBLE,dim_ids,varid)
+!>>     err = nf90_def_var(ncid,'Hstart',NF90_DOUBLE,row_id,varid)
+!>>     err = nf90_def_var(ncid,'COSsza',NF90_DOUBLE,row_id,varid)
+!>>     err = nf90_def_var(ncid,'Nsteps',NF90_INT,row_id,varid)
+!>>     err = nf90_def_var(ncid,'lev',NF90_INT,row_id,varid)
+!>>     err = nf90_enddef(ncid)
+!>>  endif
 
   ! Read the input file
   call read_input( inputfile,    R,                Cinit,  SPC_NAMES,        &
@@ -136,8 +164,8 @@ CONTAINS
 
     ! Inputs
     REAL(dp), INTENT(IN) :: RTOL_VALUE    ! Relative tolerance
-    real :: x, y, theta, radius
-    real :: x_center, y_center
+    real(dp) :: x, y, theta, radius
+    real(dp) :: x_center, y_center
     real :: theta_start, theta_end, theta_step
     integer :: i, num_points
     integer, allocatable :: steps(:)
@@ -146,48 +174,48 @@ CONTAINS
     ! Original RODAS3 coeffs equivalent to theta=146.31 deg (radius=0.30)
     !   At radius = 0.5, x=-0.91 y=0.277
  
+!>>! Process X.nc
+!>>    err = nf90_open(xfilename,NF90_WRITE,ncid)
+!>>    err = nf90_inq_varid(ncid,'C',varid)
+!>>    err = nf90_inq_varid(ncid,'COSsza',cossza_id)
+!>>    err = nf90_inq_varid(ncid,'Hstart',hstart_id)
+!>>    err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
+!>>    err = nf90_inq_varid(ncid,'lev',lev_id)
+!>>    err = nf90_inq_dimid(ncid,'row',row_id)
+!>>    err = nf90_inq_dimid(ncid,'col',col_id)
+!>>    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+!>>    rowdata = (/Cinit(1:NVAR)/)
+!>>    start_ = (/1, row_len+1/)          ! Start at col=0, row=row_len (new row)
+!>>    count_ = (/290, 1/)
+!>>    err = nf90_put_var(ncid,varid,rowdata,start=start_)
+!>>    err = nf90_put_var(ncid,hstart_id,Hstart,start=(/row_len+1/))
+!>>    err = nf90_put_var(ncid,cossza_id,COSsza,start=(/row_len+1/))
+!>>    err = nf90_put_var(ncid,lev_id,level,start=(/row_len+1/))
+!>>    err = nf90_put_var(ncid,nsteps_id,filetotsteps,start=(/row_len+1/))
+!>>    err = nf90_close(ncid)
+! This is all we godda to with X.nc
+
     radius = 0.5
     x_center = -0.5225  ! This is gamma_31
     y_center =  0.0  ! This is B2
     theta_start = 180
     theta_end   = 360
-    theta_step  = 1.
+    theta_step  = 1
     num_points  = int((theta_end - theta_start) / theta_step) + 1
 
     allocate(steps(num_points))
-
-! Process X.nc
-    err = nf90_open(xfilename,NF90_WRITE,ncid)
-    err = nf90_inq_varid(ncid,'C',varid)
-    err = nf90_inq_varid(ncid,'COSsza',cossza_id)
-    err = nf90_inq_varid(ncid,'Hstart',hstart_id)
-    err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
-    err = nf90_inq_varid(ncid,'lev',lev_id)
-    err = nf90_inq_dimid(ncid,'row',row_id)
-    err = nf90_inq_dimid(ncid,'col',col_id)
-    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
-    rowdata = (/Cinit(1:NVAR)/)
-    start_ = (/1, row_len+1/)          ! Start at col=0, row=row_len (new row)
-    count_ = (/290, 1/)
-    err = nf90_put_var(ncid,varid,rowdata,start=start_)
-    err = nf90_put_var(ncid,hstart_id,Hstart,start=(/row_len+1/))
-    err = nf90_put_var(ncid,cossza_id,COSsza,start=(/row_len+1/))
-    err = nf90_put_var(ncid,lev_id,level,start=(/row_len+1/))
-    err = nf90_put_var(ncid,nsteps_id,filetotsteps,start=(/row_len+1/))
-    err = nf90_close(ncid)
-! This is all we godda to with X.nc
-
 ! Create Y.nc
-    inquire(file=yfilename,exist=exists)
     if (.not. exists) then
        err = nf90_create(yfilename,NF90_CLOBBER, ncid)
+!       err = nf90_def_dim(ncid,'record',NF90_UNLIMITED,rec_id)
        err = nf90_def_dim(ncid,'row',NF90_UNLIMITED,row_id)
        err = nf90_def_dim(ncid,'theta',num_points,  col_id)
        dim_ids = (/col_id,row_id/)
        err = nf90_def_var(ncid,'theta',NF90_DOUBLE,(/col_id/),varid)
        err = nf90_def_var(ncid,'row',NF90_DOUBLE,(/row_id/),varid)
-       write(*,*) '<<>> err: ', err
+!       write(*,*) '<<>> err: ', err
        err = nf90_def_var(ncid,'Nsteps',NF90_DOUBLE,dim_ids,varid)
+       err = nf90_def_var(ncid,'Err',NF90_DOUBLE,dim_ids,varid)
        err = nf90_enddef(ncid)
 
        err = nf90_inq_varid(ncid,'theta',theta_id)
@@ -206,19 +234,24 @@ CONTAINS
 ! Process Y.nc
     err = nf90_open(yfilename,NF90_WRITE,ncid)
     err = nf90_inq_varid(ncid,'Nsteps',nsteps_id)
+    err = nf90_inq_varid(ncid,'Err',err_id)
     err = nf90_inq_varid(ncid,'row',rowv_id)
     err = nf90_inq_dimid(ncid,'row',row_id)
+!    err = nf90_inq_dimid(ncid,'record',rec_id)
     err = nf90_inq_dimid(ncid,'theta',col_id)
-!    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
 
-    DO jj = 0,200
+!    err = nf90_inquire_dimension(ncid,rec_id,len=rec_len)
+
+    DO jj = 0,30
+       RCNTRL(17) = 0.30_dp+(jj-1)*0.01_dp
+       err = nf90_inquire_dimension(ncid,row_id,len=row_len)
+       err = nf90_put_var(ncid,rowv_id,RCNTRL(17),start=(/row_len+1/))
     DO ii = 0,num_points-1
-
-       RCNTRL(17) = 0.41_dp+(jj-1)*0.001_dp
 
        theta = theta_start + ii * theta_step
        ! Convert angle to radians
-       theta = theta * 3.14159265358979 / 180.0
+       theta = theta * 3.14159265358979_dp / 180.0_dp
        
        ! Calculate the x and y coordinates of the point on the arc
        x = radius * cos(theta) - RCNTRL(17)
@@ -228,7 +261,7 @@ CONTAINS
        ! Initializze
        IERR         = 0
        ISTATUS      = 0
-       RSTATE       = 0.0_dp
+       RSTATUS      = 0.0_dp
 
        ! For most integrators, RCNTRL(3) is the starting value of the
        ! integration step size, so override the initial setting with this.
@@ -268,13 +301,12 @@ CONTAINS
        ICNTRL(4)  = 50
 
        ! Integrate the mechanism for an operator timestep
-       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATE, IERR )
+       CALL Integrate( TIN, TOUT, ICNTRL, RCNTRL, ISTATUS, RSTATUS, IERR )
 
-       err = nf90_put_var(ncid,nsteps_id,ISTATUS(3),start=(/ii+1,row_len+1/))
+       err = nf90_put_var(ncid,nsteps_id,ISTATUS(3 ),start=(/ii+1,row_len+1/))
+       err = nf90_put_var(ncid,   err_id,RSTATUS(20),start=(/ii+1,row_len+1/))
        steps(ii+1) = ISTATUS(3)
     ENDDO
-    err = nf90_inquire_dimension(ncid,row_id,len=row_len)
-    err = nf90_put_var(ncid,rowv_id,RCNTRL(17),start=(/row_len+1/))
     write(*,*) jj
     ENDDO
     
@@ -290,7 +322,7 @@ CONTAINS
     write( 6, 12 ) Hexit
 12  format(  " Hexit (from 3D run): ", f10.2 )
 
-    write( 6, 13 ) RSTATE(2)
+    write( 6, 13 ) RSTATUS(2)
 13  format( " Hexit ( standalone): ", f10.2 )
 
     ! Check if 3D results are consistent with standalone
@@ -298,7 +330,7 @@ CONTAINS
        write( 6, 14 )
 14     format( "Warning: Number of internal steps do not match 3D grid cell" )
     endif
-    if ( abs( Hexit - RSTATE(2) ) / Hexit > 0.001_dp ) then
+    if ( abs( Hexit - RSTATUS(2) ) / Hexit > 0.001_dp ) then
        write( 6, 15 )
 15     format( "Warning: final timestep does not match 3D grid cell within 0.1%" )
     endif
